@@ -27,7 +27,7 @@
         .then(function (game) {
           const config = {
             pieceTheme: 'img/{piece}.png',
-            position: game.board,
+            position: game.state,
           };
           const board = Chessboard('board', config);
         })

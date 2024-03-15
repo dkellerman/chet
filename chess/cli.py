@@ -2,8 +2,8 @@
 
 """CLI for playing chess"""
 
-import sys, re, random, os
-from . import Game
+import sys, re, os
+from . import Game, Player, Computer
 
 PIECE_ICONS = dict(
     p="♙",
@@ -21,23 +21,23 @@ PIECE_ICONS = dict(
 )
 
 
-class CLI(Game):
-    def get_human_move(self):
-        self.render_board()
+class Human(Player):
+    def get_move(self, game):
+        render_board(game.board)
 
         # print last move if present
-        if self.last_move:
-            print(f"[{'B' if self.color else 'W'}]", self.last_move)
+        if game.last_move:
+            print(f"[{'B' if game.cur_color else 'W'}]", game.last_move)
 
         move = None
         while not move:
-            prompt = f"[{'W' if self.color else 'B'}] => "
+            prompt = f"[{'W' if game.cur_color else 'B'}] => "
             val = input(prompt).lower().strip()
             if val in ["quit", "exit"]:
                 sys.exit(0)
             elif val in ["legal", "l"]:
-                legal_moves = self.get_legal_moves(color=self.color)
-                legal_moves = [self.to_notation(*m) for m in legal_moves]
+                legal_moves = game.get_legal_moves(color=game.cur_color)
+                legal_moves = [game.to_notation(*m) for m in legal_moves]
                 # consolidate moves with pawn promotions
                 legal_moves = list(
                     set([re.sub(r"[qrbn]$", "", l) for l in legal_moves])
@@ -45,39 +45,36 @@ class CLI(Game):
                 print("Legal moves:", "|".join(legal_moves))
                 continue
 
-            move = self.parse_notation(val)
+            move = game.parse_notation(val)
             if not move:
                 print("Please enter a move, e.g. e2e4, or 'quit' to exit.")
-            elif not move[2].get("promo") and self.requires_promotion(move):
+            elif not move[2].get("promo") and game.requires_promotion(move):
                 promo = input("Promote to [q,r,b,n]: ").lower().strip()
                 move = (move[0], move[1], {**move[2], "promo": promo})
-            elif not self.is_legal_move(move, self.color):
+            elif not game.is_legal_move(move, game.cur_color):
                 print("Illegal move!")
                 move = None
         return move
 
-    def get_computer_move(self):
-        moves = self.get_legal_moves(self.color)
-        return random.choice(moves)
 
-    def render_board(self):
-        os.system("clear")
-        for row in range(7, -1, -1):
-            for col in range(8):
-                icon = PIECE_ICONS.get(self.board[(col, row)], "-")
-                print(icon, end=" ")
-            print()
+def render_board(board):
+    os.system("clear")
+    for row in range(7, -1, -1):
+        for col in range(8):
+            icon = PIECE_ICONS.get(board[(col, row)], "-")
+            print(icon, end=" ")
+        print()
 
 
 if __name__ == "__main__":
-    game = CLI(players=("H", "C"))
+    game = Game(players=(Human(), Computer()))
     game.play()
 
     # finished:
-    game.render_board()
+    render_board(game.board)
     desc = {
         "WWINS": "White wins",
         "BWINS": "Black wins",
         "DRAW": "Draw",
     }[game.status]
-    print(f"\n{desc}: {game.ending}!")
+    print(f"\n{desc}: {game.status_desc}!")
