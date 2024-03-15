@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>AltChess</title>
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+</head>
+
+<body>
+  <div id="board" style="width: 400px"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      fetch('/api/games', {
+        method: 'POST',
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (game) {
+          const board = Chessboard('board', game.board);
+        })
+        .catch(function (error) {
+          console.error('Error creating a new game:', error);
+        });
+    });
+  </script>
+</body>
+
+</html>
