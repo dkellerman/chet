@@ -5,6 +5,12 @@ import chess as C
 
 
 class TestChess(unittest.TestCase):
+    def test_board_state(self):
+        st1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+        g = C.Game(board=st1)
+        st2 = g.get_board_state()
+        self.assertEqual(st1, st2)
+
     def test_notation(self):
         g = C.Game()
         self.assertEqual(g.to_notation((0, 1), (0, 3), {}), "a2a4")
@@ -13,17 +19,11 @@ class TestChess(unittest.TestCase):
         self.assertEqual(g.to_notation((0, 6), (0, 7), dict(promo="q")), "a7xa8q")
         self.assertEqual(g.parse_notation("a2a4q"), ((0, 1), (0, 3), dict(promo="q")))
 
-    def test_board_state(self):
-        st1 = "RNBQKBNRP8-32p8rnbqkbnr"
-        g = C.Game(board=st1)
-        st2 = g.get_board_state()
-        self.assertEqual(st1, st2)
-
     def test_make_move(self):
         g = C.Game()
         g.make_move("e2e4")
         self.assertEqual(
-            g.get_board_state(), "RNBQKBNR" "P4-P3" "-12P-19" "p8" "rnbqkbnr"
+            g.get_board_state(), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
         )
         self.assertEqual(g.color, C.BLACK)
         self.assertEqual(g.last_move, "e2e4")
@@ -52,7 +52,7 @@ class TestChess(unittest.TestCase):
             "e7e5|e7e6|f7f5|f7f6|g7g5|g7g6|g8f6|g8h6|h7h5|h7h6".split("|"),
         )
 
-        g = C.Game(board="RNBQKBNR-48rnbqkbnr")
+        g = C.Game(board="rnbqkbnr/8/8/8/8/8/8/RNBQKBNR")
         moves = sorted([g.to_notation(*m) for m in g.get_legal_moves(color=C.WHITE)])
         self.assertEqual(
             moves,
@@ -64,7 +64,7 @@ class TestChess(unittest.TestCase):
         )
 
     def test_can_castle(self):
-        g = C.Game(board="R-3K-2R-48r-3kbnr")
+        g = C.Game(board="r3kbnr/8/8/8/8/8/8/R3K2R")
         moves = sorted([g.to_notation(*m) for m in g.get_legal_moves()])
         self.assertTrue("e1g1" in moves)
         self.assertTrue(g.can_castle(C.WHITE, True))
@@ -82,13 +82,13 @@ class TestChess(unittest.TestCase):
         self.assertTrue("e8g8" not in moves)
         self.assertTrue("e8c8" not in moves)
 
-        g = C.Game(board="R-3K-2R-48r-3kbrn") # attacked
+        g = C.Game(board="r3kbrn/8/8/8/8/8/8/R3K2R") # attacked
         self.assertFalse(g.can_castle(C.WHITE, True))
         self.assertTrue(g.can_castle(C.WHITE, False))
         g.make_move("e1d1") # move king
         self.assertFalse(g.can_castle(C.WHITE, False))
 
-        g = C.Game(board="R-3K-2R-48r-3kbnr")
+        g = C.Game(board="r3kbnr/8/8/8/8/8/8/R3K2R")
         self.assertTrue(g.can_castle(C.WHITE, True))
         self.assertTrue(g.can_castle(C.WHITE, False))
         g.make_move("a1a2") # move A rook
@@ -97,7 +97,7 @@ class TestChess(unittest.TestCase):
         g.make_move("h1h2") # move H rook
         self.assertFalse(g.can_castle(C.WHITE, True))
 
-        g = C.Game(board="R-2K-3R-48r-3kbnr") # king in wrong position
+        g = C.Game(board="r3kbnr/8/8/8/8/8/8/R2K3R") # king in wrong position
         self.assertFalse(g.can_castle(C.WHITE, True))
         self.assertFalse(g.can_castle(C.WHITE, False))
 
@@ -111,15 +111,15 @@ class TestChess(unittest.TestCase):
         self.assertFalse(g.is_check(C.WHITE))
 
     def test_promotion(self):
-        g = C.Game(board="K-47P-14k")
+        g = C.Game(board="7k/P7/8/8/8/8/8/K7")
         moves = g.get_legal_moves(C.WHITE)
         self.assertTrue(((0, 6), (0, 7), dict()) not in moves)
         self.assertTrue(((0, 6), (0, 7), dict(promo="q", noattack=True)) in moves)
         g.make_move("a7a8q")
-        self.assertEqual(g.get_board_state(), "K-55Q-6k")
+        self.assertEqual(g.get_board_state(), "Q6k/8/8/8/8/8/8/K7")
 
     def test_checkmate(self):
-        g = C.Game(board="K-47RR-13k")
+        g = C.Game(board="7k/RR6/8/8/8/8/8/K7")
         self.assertFalse(g.is_checkmate(C.WHITE))
         self.assertFalse(g.is_checkmate(C.BLACK))
         self.assertEqual(g.status, None)
@@ -129,7 +129,7 @@ class TestChess(unittest.TestCase):
         self.assertFalse(g.is_checkmate(C.WHITE))
 
     def test_stalemate(self):
-        g = C.Game(board="K-4R-2-40R-14k")
+        g = C.Game(board="7k/R7/8/8/8/8/8/K4R2")
         self.assertFalse(g.is_stalemate())
         g.make_move("f1g1")
         self.assertTrue(g.is_stalemate())

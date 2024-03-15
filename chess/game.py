@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import re
+from collections import defaultdict
 
 WHITE, BLACK = True, False
-INITIAL_BOARD = "RNBQKBNR/P8/-32/p8/rnbqkbnr"
+INITIAL_BOARD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 NOTATION_RE = re.compile(
     r"^([NBRQK])?([a-h])?([1-8])?(x)?([a-h][1-8])(=[NBRQK])?(\+|#)?$|^O-O(-O)?$"
 )
@@ -228,7 +229,7 @@ class Game:
         if not with_board:  # lookahead for check, also don't recurse more than once
             non_checks = []
             for from_square, to_square, props in legal_moves:
-                board2 = dict(board)
+                board2 = defaultdict(lambda: None, board.items())
                 from_piece = board2[from_square]
                 board2[to_square] = from_piece
                 board2[from_square] = None
@@ -248,10 +249,10 @@ class Game:
         if (
             (ccode not in self.castle)
             or ((board[(4, row)] or "-").lower() != "k")
-            or ((board[(0, row)] or "-").lower() != "r")
-            or ((board[(7, row)] or "-").lower() != "r")
+            or (short and (board[(7, row)] or "-").lower() != "r")
             or (short and board[(5, row)])
             or (short and board[(6, row)])
+            or (not short and (board[(0, row)] or "-").lower() != "r")
             or (not short and board[(1, row)])
             or (not short and board[(2, row)])
             or (not short and board[(3, row)])
@@ -367,31 +368,34 @@ class Game:
     def is_stalemate(self):
         return not self.is_check() and not len(self.get_legal_moves(self.color))
 
-    def set_board_state(self, state_str):
-        state_str = state_str.replace("/", "")
-        slots = []
-        for match in re.finditer(r"([RNBQKPrnbqkp\-])(\d+)?", state_str):
-            val, repeat = match.group(1), int(match.group(2) or "1")
-            for _ in range(repeat):
-                slots.append(val if val != "-" else None)
-        if len(slots) != 64:
-            raise ValueError("Invalid board state", state_str)
-
-        self.board = dict()
-        for row in range(8):
-            for col in range(8):
-                self.board[(col, row)] = slots.pop(0)
+    def set_board_state(self, board_str):
+        state = defaultdict(lambda: None)
+        rows = board_str.split('/')
+        for row_index, row in enumerate(rows):
+            col_index = 0
+            for char in row:
+                if char.isdigit():
+                    col_index += int(char)
+                else:
+                    state[(col_index, 7 - row_index)] = char
+                    col_index += 1
+        self.board = state
 
     def get_board_state(self):
-        output = []
-        for row in range(8):
-            for col in range(8):
-                output.append(self.board[(col, row)] or "-")
-        output = "".join(output)
-
-        return re.compile(r"([RNBQKPrnbqkp\-])\1*").sub(
-            lambda m: (
-                f"{m.group(1)}{len(m.group(0))}" if len(m.group(0)) > 1 else m.group(1)
-            ),
-            output,
-        )
+        board_str = ''
+        for row_index in range(7, -1, -1):
+            empty_count = 0
+            for col_index in range(8):
+                piece = self.board.get((col_index, row_index))
+                if piece:
+                    if empty_count > 0:
+                        board_str += str(empty_count)
+                        empty_count = 0
+                    board_str += piece
+                else:
+                    empty_count += 1
+            if empty_count > 0:
+                board_str += str(empty_count)
+            if row_index > 0:
+                board_str += '/'
+        return board_str
