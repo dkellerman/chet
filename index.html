@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>AltChess</title>
+  <title>Chet</title>
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
     integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
   <script src="https://code.jquery.com/jquery-3.5.1.min.js"
@@ -14,28 +14,35 @@
 </head>
 
 <body>
+  <nav style="padding: 0 0 20px 0">
+    <button onclick="newGame()">New Game</button>
+  </nav>
   <div id="board" style="width: 400px"></div>
 
   <script>
+    let game;
+
     document.addEventListener('DOMContentLoaded', function () {
-      fetch('/api/games', {
-        method: 'POST',
-      })
-        .then(function (response) {
-          return response.json();
-        })
-        .then(function (game) {
-          const config = {
-            pieceTheme: 'img/{piece}.png',
-            position: game.state,
-          };
-          const board = Chessboard('board', config);
-        })
-        .catch(function (error) {
-          console.error('Error creating a new game:', error);
-        });
+      newGame();
     });
-  </script>
+
+    async function makeMove(source, target) {
+      // const resp = await fetch('/api/games', { method: 'POST' });
+      alert(`Move from ${source} to ${target}`);
+    }
+
+    async function newGame() {
+      const resp = await fetch('/api/games', { method: 'POST' });
+      game = await resp.json();
+      const config = {
+        pieceTheme: 'img/{piece}.png',
+        position: game.state,
+        draggable: true,
+        onDrop: makeMove,
+      };
+      const board = Chessboard('board', config);
+    }
+</script>
 </body>
 
 </html>
