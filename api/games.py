@@ -2,8 +2,6 @@ import json, uuid, sys, os
 from chess import Game
 from http.server import BaseHTTPRequestHandler
 
-sys.path.append("..")
-
 
 class handler(BaseHTTPRequestHandler):
     def load_games(self):
