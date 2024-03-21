@@ -12,6 +12,7 @@ if __name__ == "__main__":
     if options.play > 0:
         for _ in tqdm(range(options.play)):
             game = Game(players=(Computer(), Computer()))
+            # game._allow_king_capture = True
             game.play()
     else:
         game_logs = []
@@ -28,5 +29,3 @@ if __name__ == "__main__":
                     game.print_board()
                     break
                 game.make_move(m)
-
-

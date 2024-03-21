@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import re, random, json
-from collections import defaultdict
+import re, random, sys, os
+from collections import defaultdict, OrderedDict
+
 
 WHITE, BLACK = True, False
 EMPTY_STATE = "8/8/8/8/8/8/8/8"
@@ -10,20 +11,57 @@ NOTATION_RE = re.compile(
     r"^([NBRQKP])?([a-h])?([1-8])?(x)?([a-h])([1-8])(=?[nrbqNRBQ])?"
     r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
 )
+PIECE_ICONS = dict(
+    p="♙",
+    r="♖",
+    n="♘",
+    b="♗",
+    q="♕",
+    k="♔",
+    P="♟",
+    R="♜",
+    N="♞",
+    B="♝",
+    Q="♛",
+    K="♚",
+)
+
+
+class LRUCache:
+    def __init__(self, capacity):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        value = self.cache.pop(key)
+        self.cache[key] = value
+        return value
+
+    def put(self, key, value):
+        if key in self.cache:
+            self.cache.pop(key)
+        elif len(self.cache) >= self.capacity:
+            self.cache.popitem(last=False)
+        self.cache[key] = value
 
 
 class Game:
+    state_cache = LRUCache(10000)
+
     def __init__(self, state=INITIAL_STATE, players=None):
         self.players = players or [Player(), Player()]
         self.turn = 0
         self.history = []
         self.status = None
-        self.check = False
         self.status_desc = None
-        self.castle = ["K", "Q", "k", "q"]
+        self.castles = ["K", "Q", "k", "q"]
+        self.enpassant = None
         self.draw_counter = 0
         self.half_move_counter = 1
-        self.enpassant = None
+        self._allow_king_capture = False
+
         self.set_board_state(state)
 
     @property
@@ -75,6 +113,7 @@ class Game:
         promo = promo.upper() if promo and self.cur_color else promo
 
         # move
+        captured = self.board[to_sq]
         self.board[to_sq] = promo or self.board[from_sq]
         self.board[from_sq] = None
 
@@ -93,11 +132,11 @@ class Game:
 
         # update castles available
         if piece_type == "k":
-            self.castle = [c for c in self.castle if c.upper() != color]
+            self.castles = [c for c in self.castles if c.upper() != color]
         elif piece_type == "r" and from_sq in [(0, 0), (0, 7)]:
-            self.castle = [c for c in self.castle if c != ("Q" if color else "q")]
+            self.castles = [c for c in self.castles if c != ("Q" if color else "q")]
         elif piece_type == "r" and from_sq in [(7, 0), (7, 7)]:
-            self.castle = [c for c in self.castle if c != ("K" if color else "k")]
+            self.castles = [c for c in self.castles if c != ("K" if color else "k")]
 
         # half-move and 50-move rule update
         if color == BLACK:
@@ -109,34 +148,53 @@ class Game:
         self.history.append(notation)
 
         # is game over
-        if self.is_checkmate():
+        if self._allow_king_capture and captured == "k":
+            self.status = "WWINS"
+            self.status_desc = "King captured"
+        elif self._allow_king_capture and captured == "K":
+            self.status = "BWINS"
+            self.status_desc = "King captured"
+        elif self.is_checkmate():
             self.status = "WWINS" if self.cur_color else "BWINS"
             self.status_desc = "Checkmate"
         elif self.draw_counter >= 50:
             self.status = "DRAW"
             self.status_desc = "Fifty-move rule"
-        else:
+        else:  # next turn
             self.turn = 1 - self.turn
-
-        if self.is_stalemate():
-            self.status = "DRAW"
-            self.status_desc = "Stalemate"
+            if self.is_stalemate():
+                self.status = "DRAW"
+                self.status_desc = "Stalemate"
 
     def get_legal_moves(self, color=None, with_board=None):
-        # with_board param is a board for a lookahead
         board = with_board or self.board
 
-        legal_moves = []
+        if not with_board:
+            key = self.get_board_state(with_board=board, full=True)
+            cached = self.state_cache.get(key)
+            if cached:
+                if color is not None:
+                    return cached[0] if color == WHITE else cached[1]
+                return cached[0] + cached[1]
+
+        legal_moves_w, legal_moves_b = [], []
 
         # loop through all squares
         for row in range(8):
             for col in range(8):
                 piece = board[(col, row)]
-                if piece is not None and (color is None or (piece.isupper() == color)):
+                if piece is not None:
                     piece_moves = self.get_moves_for_square((col, row), with_board)
-                    legal_moves.extend(piece_moves)
+                    if piece.isupper():
+                        legal_moves_w.extend(piece_moves)
+                    else:
+                        legal_moves_b.extend(piece_moves)
 
-        return legal_moves
+        if not with_board:
+            self.state_cache.put(key, (legal_moves_w, legal_moves_b))
+        if color is not None:
+            return legal_moves_w if color == WHITE else legal_moves_b
+        return legal_moves_w + legal_moves_b
 
     def get_moves_for_square(self, from_square, with_board=None):
         board = with_board or self.board
@@ -240,7 +298,7 @@ class Game:
                     ):
                         legal_moves.append((from_square, (col, row), dict()))
 
-            if not with_board:  # check castles, unless we're doing a recursive call
+            if not with_board:  # check castles, unless we're doing a lookahead
                 if self.can_castle(piece_color, kingside=True):
                     castle = "K" if piece_color else "k"
                     legal_moves.append(
@@ -252,7 +310,7 @@ class Game:
                         (from_square, (from_col - 2, from_row), dict(castle=castle))
                     )
 
-        if not with_board:  # lookahead for check, also don't recurse more than once
+        if not with_board and not self._allow_king_capture:  # lookahead for check
             non_checks = []
             for from_square, to_square, props in legal_moves:
                 board2 = defaultdict(lambda: None, board.items())
@@ -273,7 +331,7 @@ class Game:
         row = 0 if color else 7
 
         if (
-            (ccode not in self.castle)
+            (ccode not in self.castles)
             or ((board[(4, row)] or "-").lower() != "k")
             or (kingside and (board[(7, row)] or "-").lower() != "r")
             or (kingside and board[(5, row)])
@@ -328,9 +386,9 @@ class Game:
         if type(move) == str:
             move = self.parse_notation(move)
         if len(move) > 2 and "action" in move[2]:
-            return move[2]["action"] in ["resign", "draw"]
-        for m in self.get_legal_moves(color):
-            if move[0] == m[0] and move[1] == m[1]:
+            return True
+        for lm in self.get_legal_moves(color):
+            if move[0] == lm[0] and move[1] == lm[1]:
                 return True
         return False
 
@@ -381,7 +439,7 @@ class Game:
         row_to = int(match.group(6)) - 1
 
         if not col_from or not row_from:
-            legal = self.get_legal_moves(self.cur_color, with_board=self.board)
+            legal = self.get_legal_moves(self.cur_color)
             for legal_from, legal_to, _ in legal:
                 if (
                     (legal_to == (col_to, row_to))
@@ -421,13 +479,13 @@ class Game:
         return not self.is_check() and not len(self.get_legal_moves(self.cur_color))
 
     def set_board_state(self, state_str):
-        board_str, turn, castle, enpassant, draw_counter, move_counter = (
+        board_str, turn, castles, enpassant, draw_counter, move_counter = (
             state_str.split() + [None] * 5
         )[:6]
         if turn:
             self.turn = 0 if turn == "w" else 1
-        if castle:
-            self.castle = list(castle)
+        if castles:
+            self.castles = list(castles)
         if enpassant and enpassant != "-":
             enpassant = enpassant.lower() if enpassant else None
             self.enpassant = (ord(enpassant[0]) - ord("a"), int(enpassant[1]) - 1)
@@ -469,7 +527,7 @@ class Game:
         if full:
             state_str = (
                 f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
-                f" {''.join(self.castle) if self.castle else '-'}"
+                f" {''.join(self.castles) if self.castles else '-'}"
                 f" {self.enpassant or '-'} {self.draw_counter} {self.half_move_counter}"
             )
         else:
@@ -493,9 +551,63 @@ class Player:
 class Computer(Player):
     def get_move(self, game):
         moves = game.get_legal_moves(game.cur_color)
-        if len(moves) == 0:
-            print("BOARD")
-            print(game.get_board_state(full=True))
-            game.print_board()
-            raise ValueError("No legal moves")
         return random.choice(moves)
+
+
+class Human(Player):
+    def get_move(self, game):
+        render_board(game.board)
+
+        # print last move if present
+        if game.last_move:
+            print(f"[{'B' if game.cur_color else 'W'}]", game.last_move)
+
+        move = None
+        while not move:
+            prompt = f"[{'W' if game.cur_color else 'B'}] => "
+            val = input(prompt).lower().strip()
+            if val in ["quit", "exit"]:
+                sys.exit(0)
+            elif val in ["legal", "l"]:
+                legal_moves = game.get_legal_moves(color=game.cur_color)
+                legal_moves = [game.to_notation(*m) for m in legal_moves]
+                # consolidate moves with pawn promotions
+                legal_moves = list(
+                    set([re.sub(r"[qrbn]$", "", l) for l in legal_moves])
+                )
+                print("Legal moves:", "|".join(legal_moves))
+                continue
+
+            move = game.parse_notation(val)
+            if not move:
+                print("Please enter a move, e.g. e2e4, or 'quit' to exit.")
+            elif not move[2].get("promo") and game.requires_promotion(move):
+                promo = input("Promote to [q,r,b,n]: ").lower().strip()
+                move = (move[0], move[1], {**move[2], "promo": promo})
+            elif not game.is_legal_move(move, game.cur_color):
+                print("Illegal move!")
+                move = None
+        return move
+
+
+def render_board(board):
+    os.system("clear")
+    for row in range(7, -1, -1):
+        for col in range(8):
+            icon = PIECE_ICONS.get(board[(col, row)], "-")
+            print(icon, end=" ")
+        print()
+
+
+if __name__ == "__main__":
+    game = Game(players=(Human(), Computer()))
+    game.play()
+
+    # finished:
+    render_board(game.board)
+    desc = {
+        "WWINS": "White wins",
+        "BWINS": "Black wins",
+        "DRAW": "Draw",
+    }[game.status]
+    print(f"\n{desc}: {game.status_desc}!")

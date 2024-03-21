@@ -19,7 +19,7 @@ class TestChess(unittest.TestCase):
         self.assertEqual(g.draw_counter, 0)
         self.assertEqual(g.half_move_counter, 1)
         self.assertEqual(g.enpassant, None)
-        self.assertEqual(g.castle, ["K", "Q", "k", "q"])
+        self.assertEqual(g.castles, ["K", "Q", "k", "q"])
 
     def test_notation(self):
         g = C.Game()
@@ -160,7 +160,7 @@ class TestChess(unittest.TestCase):
         self.assertTrue("e8c8" in moves)
         self.assertTrue(g.can_castle(C.BLACK, False))
 
-        g.castle = []
+        g.castles = []
         moves = sorted([g.to_notation(*m) for m in g.get_legal_moves()])
         self.assertTrue("e1g1" not in moves)
         self.assertTrue("e1c1" not in moves)

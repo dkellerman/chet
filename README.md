@@ -1,10 +1,18 @@
 # Chess
 
 ## TODO
-
-- replay() && test against games archive
+- move piece (for lookahead: implement castles, etc)
 - randomize initial position (check legality)
-- cmd line args (players, loop)
 - 3-fold rep
 - insufficient material
-- offer/accept draw (legal for computers?)
+- offer/accept draw
+
+## Perf
+- perf profile
+- cache legal moves
+
+## UI
+- start empty, new game btn adds new ID to path
+- fetch game by id
+- UI drag and drop
+- make move & respond
