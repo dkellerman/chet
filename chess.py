@@ -5,8 +5,8 @@ from collections import defaultdict, OrderedDict
 
 
 WHITE, BLACK = True, False
-EMPTY_STATE = "8/8/8/8/8/8/8/8"
-INITIAL_STATE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+EMPTY_STATE = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
+INITIAL_STATE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 NOTATION_RE = re.compile(
     r"^([NBRQKP])?([a-h])?([1-8])?(x)?([a-h])([1-8])(=?[nrbqNRBQ])?"
     r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
@@ -87,10 +87,6 @@ class Game:
     def make_move(self, move):
         if type(move) == str:
             move = self.parse_notation(move)
-        elif type(move) == list:
-            for m in move:
-                self.make_move(m)
-            return
 
         notation = self.to_notation(*move)
         from_sq, to_sq, props = move
@@ -170,7 +166,7 @@ class Game:
         board = with_board or self.board
 
         if not with_board:
-            key = self.get_board_state(with_board=board, full=True)
+            key = self.get_board_state(with_board=board)
             cached = self.state_cache.get(key)
             if cached:
                 if color is not None:
@@ -466,8 +462,8 @@ class Game:
         sep = "" if not self.board[to_sq] and not props.get("enp") else "x"
 
         return (
-            f"{chr(ord('a') + col_from)}{row_from + 1}{sep}"
-            f"{chr(ord('a') + col_to)}{row_to + 1}"
+            f"{c2sq((col_from, row_from))}{sep}"
+            f"{c2sq((col_to, row_to))}"
             f"{props.get('promo') or ''}"
         )
 
@@ -488,7 +484,7 @@ class Game:
             self.castles = list(castles)
         if enpassant and enpassant != "-":
             enpassant = enpassant.lower() if enpassant else None
-            self.enpassant = (ord(enpassant[0]) - ord("a"), int(enpassant[1]) - 1)
+            self.enpassant = sq2c(enpassant)
         if draw_counter:
             self.draw_counter = int(draw_counter)
         if move_counter:
@@ -506,7 +502,7 @@ class Game:
                     col_index += 1
         self.board = state
 
-    def get_board_state(self, full=False, with_board=None):
+    def get_board_state(self, with_board=None):
         board = with_board or self.board
         board_str = ""
         for row_index in range(7, -1, -1):
@@ -524,14 +520,12 @@ class Game:
                 board_str += str(empty_count)
             if row_index > 0:
                 board_str += "/"
-        if full:
-            state_str = (
-                f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
-                f" {''.join(self.castles) if self.castles else '-'}"
-                f" {self.enpassant or '-'} {self.draw_counter} {self.half_move_counter}"
-            )
-        else:
-            state_str = board_str
+        state_str = (
+            f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
+            f" {''.join(self.castles) if self.castles else '-'}"
+            f" {c2sq(self.enpassant) if self.enpassant else '-'}"
+            f" {self.draw_counter} {self.half_move_counter}"
+        )
         return state_str
 
     def print_board(self):
@@ -597,6 +591,14 @@ def render_board(board):
             icon = PIECE_ICONS.get(board[(col, row)], "-")
             print(icon, end=" ")
         print()
+
+
+def sq2c(sq):
+    return ord(sq[0]) - ord("a"), int(sq[1]) - 1
+
+
+def c2sq(coords):
+    return chr(ord("a") + coords[0]) + str(coords[1] + 1)
 
 
 if __name__ == "__main__":
