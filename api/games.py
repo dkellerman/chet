@@ -1,6 +1,9 @@
 import json, uuid, sys, os
+from pathlib import Path
 from chess import Game
 from http.server import BaseHTTPRequestHandler
+
+sys.path.append(str(Path(__file__).parent.parent))
 
 
 class handler(BaseHTTPRequestHandler):
