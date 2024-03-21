@@ -1,21 +1,18 @@
-import json, uuid, sys, os
+import json, uuid, sys
 from pathlib import Path
 from chess import Game
 from http.server import BaseHTTPRequestHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 
+games = {}
 
 class handler(BaseHTTPRequestHandler):
     def load_games(self):
-        if not os.path.exists("./games.json"):
-            return {}
-        with open("./games.json", "r") as file:
-            return json.load(file)
+        return games
 
     def save_games(self, games):
-        with open("./games.json", "w") as file:
-            json.dump(games, file)
+        games = games
 
     def send_json(self, data, status=200):
         self.send_response(status)
