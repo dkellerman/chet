@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import unittest, sys, os
+import unittest, sys, io
 import chess as C
 
 
@@ -15,7 +15,6 @@ class TestChess(unittest.TestCase):
         self.assertEqual(g.turn, 0)
         self.assertEqual(g.cur_color, C.WHITE)
         self.assertEqual(g.draw_counter, 0)
-        self.assertEqual(g.half_move_counter, 1)
         self.assertEqual(g.enpassant, None)
         self.assertEqual(g.castles, ["K", "Q", "k", "q"])
 
@@ -403,7 +402,7 @@ class TestChess(unittest.TestCase):
         self.assertEqual(g.status, None)
         g.make_move("a7a8")
         self.assertTrue(g.is_checkmate())
-        self.assertEqual(g.status, "WWINS")
+        self.assertEqual(g.status, C.Status.WWINS)
 
     def test_stalemate(self):
         g = C.Game(state="7k/R7/8/8/8/8/8/K4R2 w - - 0 1")
@@ -417,35 +416,32 @@ class TestChess(unittest.TestCase):
     def test_resign(self):
         g = C.Game()
         g.make_moves(["e2e4", "a7a6", "resign"])
-        self.assertEqual(g.status, "BWINS")
+        self.assertEqual(g.status, C.Status.BWINS)
 
     def test_50_move_rule(self):
         g = C.Game()
-        for _ in range(24):
+        self.assertEqual(g.draw_counter, 0)
+        for _ in range(12):
             g.make_move("g1f3")
             g.make_move("g8f6")
             g.make_move("f3g1")
             g.make_move("f6g8")
+            g.repititions = dict()
         self.assertEqual(g.status, None)
-        self.assertEqual(g.half_move_counter, 49)
         self.assertEqual(g.draw_counter, 48)
 
         g.make_move("g1f3")
         g.make_move("g8f6")
-        g.make_move("f3g1")
-        g.make_move("f6g8")
-        self.assertEqual(g.status, "DRAW")
+        self.assertEqual(g.status, C.Status.DRAW)
         self.assertEqual(g.status_desc, "Fifty-move rule")
-        self.assertEqual(g.half_move_counter, 51)
         self.assertEqual(g.draw_counter, 50)
 
     def test_render_board(self):
-        with open(os.devnull, "w") as blackhole:
-            sys.stdout = blackhole
-            g = C.Game()
-            g.render_board(icons=True)
-            g.render_board(icons=False)
-        sys.stdout = sys.__stdout__
+        g = C.Game()
+        val = _capture_stdout(g.render_board)
+        self.assertTrue(val.startswith("\nr n b q k b n r \n"))
+        val = _capture_stdout(g.render_board, color=C.BLACK)
+        self.assertTrue(val.startswith("\nR N B Q K B N R \n"))
 
     def test_allow_king_capture(self):
         g = C.Game("rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1")
@@ -454,7 +450,7 @@ class TestChess(unittest.TestCase):
         g.make_move("e1d2")
         self.assertTrue(g.is_legal_move("d8xd2"))
         g.make_move("d8xd2")
-        self.assertEqual(g.status, "BWINS")
+        self.assertEqual(g.status, C.Status.BWINS)
         self.assertEqual(g.status_desc, "King captured")
 
     def test_is_legal_state(self):
@@ -470,6 +466,33 @@ class TestChess(unittest.TestCase):
             g = C.Game()
             g.randomize_board()
             self.assertTrue(g.is_legal_state())
+
+    def test_threefold_rep(self):
+        g = C.Game()
+        g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
+        self.assertEqual(g.status, None)
+        g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
+        self.assertEqual(g.status, C.Status.DRAW)
+        self.assertEqual(g.status_desc, "Threefold repetition")
+
+    def test_position_score(self):
+        g = C.Game()
+        self.assertEqual(g.get_position_score(), 0)
+        g.make_moves(["e2e4", "d7d5", "e2xd5"])
+        self.assertEqual(g.get_position_score(), 1)
+        g.board[(3, 0)] = None
+        self.assertEqual(g.get_position_score(), -8)
+        g = C.Game(state="7k/RR6/8/8/8/8/8/K7 w - - 0 1")
+        g.make_move("a7a8#")
+        self.assertEqual(g.get_position_score(), float("inf"))
+
+
+def _capture_stdout(func, *args, **kwargs):
+    out = io.StringIO()
+    sys.stdout = out
+    func(*args, **kwargs)
+    sys.stdout = sys.__stdout__
+    return out.getvalue()
 
 
 if __name__ == "__main__":

@@ -1,18 +1,11 @@
 # Chess
 
 ## TODO
-- board setup
-- offer draw
-- 3-fold
 - insufficient material
-- check legal position
-- randomize position
-- is terminal state
 - player-based state
-- pos score
+- should it check for ending right away?
 - lookahead
 - enp pin
-- requires promotion
 
 
 - UI/server deployed to vercel w redis
@@ -24,15 +17,14 @@
   - resign/draw
   - game over
   - promotions
-  + shuffle board
+  - shuffle board
+
 - minimax player -> pos score, order by capture, pruning
   - store as q state table
-  - lookahead
-  - is_terminal
-  - score
   - minimax
   - alpha beta pruning
   - tree ordering
+
 - profile: deep perf & mem/caching
   - cli args
   - profiler
@@ -54,3 +46,8 @@
 - ppo
 - a star
 
+
+## maybe
+- offer draw
+- allow output of shortened notation
+- requires promotion

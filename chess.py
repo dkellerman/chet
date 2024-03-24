@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import re, random, sys, os, functools, collections
+import re, random, sys, os, functools, collections, enum
 
 
 WHITE, BLACK = True, False
@@ -17,22 +17,14 @@ PIECE_VECTORS = dict(
     r=[(0, 1), (0, -1), (1, 0), (-1, 0)],
     b=[(1, 1), (-1, 1), (1, -1), (-1, -1)],
 )
-PIECE_ICONS = dict(
-    [
-        ("P", "♟"),
-        ("R", "♜"),
-        ("N", "♞"),
-        ("B", "♝"),
-        ("Q", "♛"),
-        ("K", "♚"),
-        ("p", "♙"),
-        ("r", "♖"),
-        ("n", "♘"),
-        ("b", "♗"),
-        ("q", "♕"),
-        ("k", "♔"),
-    ]
-)
+PIECE_SCORES = dict(p=1, n=3, b=3, r=5, q=9, k=0)
+
+
+class Status(enum.Enum):
+    PLAYING = "Playing"
+    WWINS = "White wins"
+    BWINS = "Black wins"
+    DRAW = "Draw"
 
 
 def cache_by_game_state(func):
@@ -56,7 +48,6 @@ class Game:
     def __init__(self, state=INITIAL_STATE, players=None):
         self.players = players or [Human(), Computer()]
         self.history = []
-        self.half_move_counter = 1
         self.status = None
         self.status_desc = None
         self._allow_king_capture = False
@@ -65,8 +56,8 @@ class Game:
     def play(self):
         if not self.players or len(self.players) != 2:
             raise ValueError("Two players required")
-        self.status = "PLAYING"
-        while self.status == "PLAYING":
+        self.status = Status.PLAYING
+        while self.status == Status.PLAYING:
             move = self.cur_player.get_move(self)
             self.make_move(move)
 
@@ -86,7 +77,7 @@ class Game:
         action = props.get("action", None)
         if action:
             if action == "resign":
-                self.status = "BWINS" if self.cur_color else "WWINS"
+                self.status = Status.BWINS if self.cur_color else Status.WWINS
                 self.status_desc = "Resignation"
             elif action == "draw":
                 self.status = "DRAW"
@@ -126,34 +117,39 @@ class Game:
         elif piece_type == "r" and from_sq in [(7, 0), (7, 7)]:
             self.castles = [c for c in self.castles if c != ("K" if color else "k")]
 
-        # half-move and 50-move rule update
-        if color == BLACK:
-            self.half_move_counter += 1
-            self.draw_counter += 1
+        # flip turn
+        self.history.append(notation)
+        self.turn = 1 - self.turn
+        self.state = self.get_state()
+
+        # 50-move rule update
+        self.draw_counter += 1
         if (self.board[to_sq] is None and (piece_type != "p")) or "x" in notation:
             self.draw_counter = 0
 
-        self.history.append(notation)
-        self.turn = 1 - self.turn
+        # 3-fold repetition update
+        board_state = self.state.split()[0]
+        self.repititions[board_state] = self.repititions.get(board_state, 0) + 1
 
         # is game over
         if self._allow_king_capture and captured == "k":
-            self.status = "WWINS"
+            self.status = Status.WWINS
             self.status_desc = "King captured"
         elif self._allow_king_capture and captured == "K":
-            self.status = "BWINS"
+            self.status = Status.BWINS
             self.status_desc = "King captured"
         elif self.is_checkmate():
-            self.status = "BWINS" if self.cur_color else "WWINS"
+            self.status = Status.BWINS if self.cur_color else Status.WWINS
             self.status_desc = "Checkmate"
         elif self.is_stalemate():
-            self.status = "DRAW"
+            self.status = Status.DRAW
             self.status_desc = "Stalemate"
         elif self.draw_counter >= 50:
-            self.status = "DRAW"
+            self.status = Status.DRAW
             self.status_desc = "Fifty-move rule"
-
-        self.state = self.get_state()
+        elif self.repititions[board_state] >= 3:
+            self.status = Status.DRAW
+            self.status_desc = "Threefold repetition"
 
     @cache_by_game_state
     def get_legal_moves(self):
@@ -404,12 +400,6 @@ class Game:
                 return True
         return False
 
-    def requires_promotion(self, move):
-        if type(move) == str:
-            move = self.parse_notation(move)
-        from_sq, to_sq, _ = move
-        return ((self.board[from_sq] or "-").lower() == "p") and to_sq[1] in [0, 7]
-
     def parse_notation(self, val):
         val = val.strip()
 
@@ -485,7 +475,7 @@ class Game:
         return not self.is_check() and not len(self.get_legal_moves())
 
     def set_state(self, state_str):
-        board_str, turn, castles, enpassant, draw_counter, move_counter = (
+        board_str, turn, castles, enpassant, draw_counter, full_move_counter = (
             state_str.split() + [None] * 5
         )[:6]
         if turn:
@@ -501,8 +491,8 @@ class Game:
             self.enpassant = None
         if draw_counter:
             self.draw_counter = int(draw_counter)
-        if move_counter:
-            self.move_counter = int(move_counter)
+        if full_move_counter:
+            self.history = [None] * ((int(full_move_counter) - 1) * 2)
 
         board = collections.defaultdict(lambda: None)
         rows = board_str.split("/")
@@ -516,6 +506,7 @@ class Game:
                     col_index += 1
         self.board = board
         self.state = state_str
+        self.repititions = {board_str: 1}
 
     def get_state(self):
         board_str = self.board_to_fen(self.board)
@@ -523,11 +514,11 @@ class Game:
             f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
             f" {''.join(self.castles) if self.castles else '-'}"
             f" {c2sq(self.enpassant) if self.enpassant else '-'}"
-            f" {self.draw_counter} {self.half_move_counter}"
+            f" {self.draw_counter} {(len(self.history) // 2) or 1}"
         )
         return state_str
 
-    def render_board(self, color=None, clear=False, icons=False):
+    def render_board(self, color=None, clear=False):
         color = color if color is not None else self.cur_color
         if clear:
             os.system("clear")
@@ -535,8 +526,7 @@ class Game:
         print()
         for row in row_range:
             for col in range(8):
-                piece = self.board.get((col, row), "-")
-                piece = PIECE_ICONS.get(piece, "-") if icons else piece
+                piece = self.board.get((col, row)) or "-"
                 print(piece, end=" ")
             print()
 
@@ -545,8 +535,16 @@ class Game:
 
     @cache_by_game_state
     def is_legal_state(self):
+        # 2 kings
         if len([p for p in self.board.values() if p in "kK"]) != 2:
             return False
+        # no pawns on first/last row
+        for col in range(8):
+            if (
+                self.board.get((col, 0), "-") in "Pp"
+                or self.board.get((col, 7), "-") in "Pp"
+            ):
+                return False
         # player can't be in check if not their turn
         if not self._allow_king_capture:
             g = Game(state=self.get_state())
@@ -592,6 +590,24 @@ class Game:
                 board_str += "/"
         return board_str
 
+    def get_position_score(self):
+        if self.status == Status.WWINS:
+            return float("inf")
+        if self.status == Status.BWINS:
+            return float("-inf")
+        if self.status == Status.DRAW:
+            return 0
+
+        wscore, bscore = 0, 0
+        for piece in self.board.values():
+            piece = piece or "-"
+            val = PIECE_SCORES.get(piece.lower(), 0)
+            if piece.isupper():
+                wscore += val
+            else:
+                bscore += val
+        return wscore - bscore
+
     @property
     def cur_color(self):
         return WHITE if self.turn == 0 else BLACK
@@ -603,6 +619,10 @@ class Game:
     @property
     def last_move(self):
         return self.history[-1] if len(self.history) else None
+
+    @property
+    def is_ended(self):
+        return self.status not in (None, Status.PLAYING)
 
 
 class Player:
@@ -618,7 +638,7 @@ class Computer(Player):
 
 class Human(Player):
     def get_move(self, game):
-        game.render_board(clear=True, icons=True)
+        game.render_board(clear=True)
 
         # print last move if present
         if game.last_move:
@@ -643,9 +663,6 @@ class Human(Player):
             move = game.parse_notation(val)
             if not move:
                 print("Please enter a move, e.g. e2e4, or 'quit' to exit.")
-            elif not move[2].get("promo") and game.requires_promotion(move):
-                promo = input("Promote to [q,r,b,n]: ").lower().strip()
-                move = (move[0], move[1], {**move[2], "promo": promo})
             elif not game.is_legal_move(move):
                 print("Illegal move!")
                 move = None
@@ -670,6 +687,5 @@ if __name__ == "__main__":
     game.play()
 
     # finished:
-    game.render_board(clear=True, icons=True)
-    desc = dict(WWINS="White wins", BWINS="Black wins", DRAW="Draw")[game.status]
-    print(f"\n{desc}: {game.status_desc}!")
+    game.render_board(clear=True)
+    print(f"\n{game.status.value}: {game.status_desc}!")
