@@ -5,9 +5,10 @@ import chess as C
 
 
 class TestChess(unittest.TestCase):
-    def test_attacks(self):
+    def test_get_attacks(self):
         g = C.Game()
-        attacks, pin = g.get_attacks(C.WHITE)
+        g.turn = 1
+        attacks, pin = g.get_attacks()
         self.assertEqual(
             " ".join([C.c2sq(sq) for sq in sorted(attacks)]),
             " ".join(
@@ -19,8 +20,8 @@ class TestChess(unittest.TestCase):
         )
         self.assertIsNone(pin)
 
-        g = C.Game("rnbqkbnr/8/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
-        attacks, pin = g.get_attacks(C.BLACK)
+        g = C.Game("rnbqkbnr/8/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        attacks, pin = g.get_attacks()
         self.assertEqual(
             " ".join([C.c2sq(sq) for sq in sorted(attacks)]),
             " ".join(
@@ -40,18 +41,18 @@ class TestChess(unittest.TestCase):
         )
         self.assertIsNone(pin)
 
-        g = C.Game("rnb1kbnr/4q3/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
-        attacks, pin = g.get_attacks(C.BLACK)
+        g = C.Game("rnb1kbnr/4q3/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        attacks, pin = g.get_attacks()
         self.assertEqual(pin, (C.sq2c("e2"), (0, -1)))
 
         g = C.Game("8/8/8/8/6b1/5B2/8/3K4 w KQkq - 0 1")
-        attacks, pin = g.get_attacks(C.BLACK)
+        attacks, pin = g.get_attacks()
         self.assertEqual(pin, (C.sq2c("f3"), (-1, -1)))
 
-    def test_board_state(self):
-        st1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+    def test_state(self):
+        st1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         g = C.Game(state=st1)
-        st2 = g.get_board_state()
+        st2 = g.state
         self.assertEqual(
             st2, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         )
@@ -148,7 +149,7 @@ class TestChess(unittest.TestCase):
     #     g = C.Game()
     #     g.make_move("e2e4")
     #     self.assertEqual(
-    #         g.get_board_state(),
+    #         g.state,
     #         "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e4 0 1",
     #     )
     #     self.assertEqual(g.cur_color, C.BLACK)
@@ -261,7 +262,7 @@ class TestChess(unittest.TestCase):
     #     self.assertTrue(((0, 6), (0, 7), dict()) not in moves)
     #     self.assertTrue(((0, 6), (0, 7), dict(promo="q", noattack=True)) in moves)
     #     g.make_move("a7a8q")
-    #     self.assertRegex(g.get_board_state(), r"^Q6k/8/8/8/8/8/8/K7 b ")
+    #     self.assertRegex(g.state, r"^Q6k/8/8/8/8/8/8/K7 b ")
 
     #     # with capture
     #     g = C.Game(state="r6k/1P6/8/8/8/8/8/K7")
@@ -269,7 +270,7 @@ class TestChess(unittest.TestCase):
     #     self.assertTrue(((1, 6), (0, 7), dict()) not in moves)
     #     self.assertTrue(((1, 6), (0, 7), dict(promo="q")) in moves)
     #     g.make_move("b7xa8q")
-    #     self.assertRegex(g.get_board_state(), r"^Q6k/8/8/8/8/8/8/K7")
+    #     self.assertRegex(g.state, r"^Q6k/8/8/8/8/8/8/K7")
 
     # def test_checkmate(self):
     #     g = C.Game(state="7k/RR6/8/8/8/8/8/K7")

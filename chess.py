@@ -36,34 +36,30 @@ PIECE_ICONS = dict(
 )
 
 
-class Game:
-    state_cache = dict()
+def cache_by_game_state():
+    def decorator(func):
+        cache = {}
 
+        def wrapper(self, *args, **kwargs):
+            cache_key = (self.state, args, frozenset(kwargs.items()))
+            if cache_key not in cache:
+                cache[cache_key] = func(self, *args, **kwargs)
+            return cache[cache_key]
+
+        return wrapper
+
+    return decorator
+
+
+class Game:
     def __init__(self, state=INITIAL_STATE, players=None):
         self.players = players or [Human(), Computer()]
-        self.turn = 0
         self.history = []
+        self.half_move_counter = 1
         self.status = None
         self.status_desc = None
-        self.castles = ["K", "Q", "k", "q"]
-        self.enpassant = None
-        self.draw_counter = 0
-        self.half_move_counter = 1
         self._allow_king_capture = False
-
-        self.set_board_state(state)
-
-    @property
-    def cur_color(self):
-        return WHITE if self.turn == 0 else BLACK
-
-    @property
-    def cur_player(self):
-        return self.players[self.turn]
-
-    @property
-    def last_move(self):
-        return self.history[-1] if len(self.history) else None
+        self.set_state(state)
 
     def play(self):
         if not self.players or len(self.players) != 2:
@@ -150,18 +146,15 @@ class Game:
         # next turn
         else:
             self.turn = 1 - self.turn
+            self.state = self.get_state()
             if self.is_stalemate():
                 self.status = "DRAW"
                 self.status_desc = "Stalemate"
 
+    @cache_by_game_state()
     def get_legal_moves(self):
-        cache_key = self.get_board_state()
-        cached = self.state_cache.get(cache_key, None)
-        if cached:
-            return cached
-
         # first get opponent attacks and pins
-        attacks, pin = self.get_attacks(not self.cur_color)
+        attacks, pin = self.get_attacks()
 
         # get legal moves for current player
         moves = []
@@ -213,13 +206,13 @@ class Game:
                     moves.append((from_square, enp_to, dict(enp=True)))
 
             elif piece_type == "r":
-                moves.extend(self.get_dirs(from_square, vectors))
+                moves.extend(self.get_moves_by_vectors(from_square, vectors))
 
             elif piece_type == "q":
-                moves.extend(self.get_dirs(from_square, vectors))
+                moves.extend(self.get_moves_by_vectors(from_square, vectors))
 
             elif piece_type == "b":
-                moves.extend(self.get_dirs(from_square, vectors))
+                moves.extend(self.get_moves_by_vectors(from_square, vectors))
 
             elif piece_type == "n":
                 for col_dir, row_dir in vectors:
@@ -249,11 +242,12 @@ class Game:
             castle = "Q" if piece_color else "q"
             moves.append((from_square, (from_col - 2, from_row), dict(castle=castle)))
 
-        self.state_cache[cache_key] = moves
         return moves
 
-    def get_attacks(self, color):
+    @cache_by_game_state()
+    def get_attacks(self):
         attacks, pin = [], None
+        color = not self.cur_color
 
         for from_square, piece in self.board.items():
             if piece is None or piece.isupper() != color:
@@ -364,7 +358,7 @@ class Game:
 
         return attacks, pin
 
-    def get_dirs(self, from_square, vectors):
+    def get_moves_by_vectors(self, from_square, vectors):
         """Get moves by directions"""
         moves = []
         for row_dir, col_dir in vectors:
@@ -469,23 +463,27 @@ class Game:
     def is_stalemate(self):
         return not self.is_check() and not len(self.get_legal_moves(self.cur_color))
 
-    def set_board_state(self, state_str):
+    def set_state(self, state_str):
         board_str, turn, castles, enpassant, draw_counter, move_counter = (
             state_str.split() + [None] * 5
         )[:6]
         if turn:
             self.turn = 0 if turn == "w" else 1
-        if castles:
+        if castles and castles != '-':
             self.castles = list(castles)
+        else:
+            self.castles = []
         if enpassant and enpassant != "-":
             enpassant = enpassant.lower() if enpassant else None
             self.enpassant = sq2c(enpassant)
+        else:
+            self.enpassant = None
         if draw_counter:
             self.draw_counter = int(draw_counter)
         if move_counter:
             self.move_counter = int(move_counter)
 
-        state = defaultdict(lambda: None)
+        board = defaultdict(lambda: None)
         rows = board_str.split("/")
         for row_index, row in enumerate(rows):
             col_index = 0
@@ -493,11 +491,12 @@ class Game:
                 if char.isdigit():
                     col_index += int(char)
                 else:
-                    state[(col_index, 7 - row_index)] = char
+                    board[(col_index, 7 - row_index)] = char
                     col_index += 1
-        self.board = state
+        self.board = board
+        self.state = state_str
 
-    def get_board_state(self):
+    def get_state(self):
         board_str = ""
         for row_index in range(7, -1, -1):
             empty_count = 0
@@ -529,6 +528,18 @@ class Game:
                 val = self.board[(col, row)] or "-"
                 print(val, end=" ")
             print()
+
+    @property
+    def cur_color(self):
+        return WHITE if self.turn == 0 else BLACK
+
+    @property
+    def cur_player(self):
+        return self.players[self.turn]
+
+    @property
+    def last_move(self):
+        return self.history[-1] if len(self.history) else None
 
 
 class Player:

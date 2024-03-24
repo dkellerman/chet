@@ -3,12 +3,15 @@
 ## Sunday
 
 - finish engine basics & tests
+  - enp pin
   - legal moves
   - king capture
   - board setup
   - offer draw
   - 3-fold
   - insufficient material
+  - check legal position
+  - randomize position
   - cache/lru
   - tests
 - UI/server deployed to vercel w redis
