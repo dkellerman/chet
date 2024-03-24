@@ -1,19 +1,20 @@
 # Chess
 
-## Sunday
+## TODO
+- board setup
+- offer draw
+- 3-fold
+- insufficient material
+- check legal position
+- randomize position
+- is terminal state
+- player-based state
+- pos score
+- lookahead
+- enp pin
+- requires promotion
 
-- finish engine basics & tests
-  - enp pin
-  - legal moves
-  - king capture
-  - board setup
-  - offer draw
-  - 3-fold
-  - insufficient material
-  - check legal position
-  - randomize position
-  - cache/lru
-  - tests
+
 - UI/server deployed to vercel w redis
   - manual layout / drag
   - new game / url
@@ -39,41 +40,6 @@
   - flop calc
   - mem reqs
   - htop etc
-
-
-## TODO
-[1]
-  - get legal moves
-    - attacked squares
-    - pins
-    - enp pin
-    - checks
-    - castles
-    - enp
-  - return as notation (?)
-[1]
-  - allow king capture
-  - is_ended
-  - score (material count)
-  - randomize initial position (check legality)
-  - 3-fold rep
-  - insufficient material
-  - offer/accept draw
-[1] - lookahead
-[1] - perf profile
-[1]
-  - use q state table
-  - cache and pruning
-  - notation load test
-  - training loop
-[1] - parallelize
-[1] - tests
-[1] - tournament
-
-## UI
-[1]
-  - make move & respond
-  - is legal move
 
 
 ## Algorithms
