@@ -1,11 +1,11 @@
 # Chess
 
 ## TODO
+- lookahead
 - insufficient material
 - player-based state
-- should it check for ending right away?
-- lookahead
 - enp pin
+- should it check for ending right away?
 
 
 - UI/server deployed to vercel w redis

@@ -590,6 +590,7 @@ class Game:
                 board_str += "/"
         return board_str
 
+    @cache_by_game_state
     def get_position_score(self):
         if self.status == Status.WWINS:
             return float("inf")

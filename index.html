@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chet</title>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="module">
+      const html = htm.bind(React.createElement);
+
+      function Square({ color }) {
+        return html`<div className="square ${color}" />`;
+      }
+
+      function Board() {
+        const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+        const rows = fen.split('/');
+
+        return html`
+          <div>
+            ${rows.map((row, i) => html`
+              <div key=${'row'+i}>
+                ${row.split('').map((piece, j) => html`
+                  <${Square} piece=${piece} key=${i+'-'+j} />
+                `)}
+              </div>
+            `)}
+          </div>
+        `;
+      }
+
+      function App() {
+        return html`
+          <h1>Chet</h1>
+          <${Board} />
+        `;
+      }
+
+      ReactDOM.render(html`<${App} />`, document.getElementById('root'));
+    </script>
+
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/htm@3.0.4/dist/htm.umd.js"></script>
+</body>
+</html>
+
