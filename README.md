@@ -1,24 +1,31 @@
 # Chess
 
 ## TODO
+- rules
+  - insufficient material
+  - enp pin
+  - check for ending right away
+
 - lookahead
-- insufficient material
-- enp pin
-- check for ending right away
-- shuffle pieces
-- player-based state
-- move class
+
+- refactors
+  - types
+  - move class -> to/from notation
+  - board class -> allow for bitboards
+  - player-based state
 
 - UI/server
-  - manual layout / drag
-  - new game / url
-  - load game / url
+  - layout & pieces
+  - dragging
+  - illegal move (client?)
+  - new game -> redirect to url
+  - load game
   - make move & respond
-  - illegal move
-  - resign/draw
+  - illegal move (server)
   - game over
   - promotions
   - shuffle board
+  - setup board?
 
 - minimax player
   - lookahead tree
@@ -37,6 +44,10 @@
   - flop calc
   - mem reqs, adjust cache
   - htop etc
+  - try:
+    - typing
+    - mojo
+    - bitboards
 
 
 ## Algorithms
@@ -44,8 +55,9 @@
 - mcts
 - q
 - elo
+- bitboards
 - transformer
-  - tokenizer (notation)
+- tokenizer for transformer (notation)
 - genetic (player hyperparams)
 - dqn
 - ppo
