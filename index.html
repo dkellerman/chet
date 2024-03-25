@@ -1,49 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Chet</title>
-  </head>
-  <body>
-    <div id="root"></div>
 
-    <script type="module">
-      const html = htm.bind(React.createElement);
+<head>
+  <title>Chet</title>
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+    integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
 
-      function Square({ color }) {
-        return html`<div className="square ${color}" />`;
-      }
+  <style>
+    nav {
+      padding: 0 0 20px 0;
+    }
 
-      function Board() {
-        const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
-        const rows = fen.split('/');
+    #board {
+      width: 400px;
+    }
+  </style>
+</head>
 
-        return html`
-          <div>
-            ${rows.map((row, i) => html`
-              <div key=${'row'+i}>
-                ${row.split('').map((piece, j) => html`
-                  <${Square} piece=${piece} key=${i+'-'+j} />
-                `)}
-              </div>
-            `)}
-          </div>
-        `;
-      }
+<body>
+  <nav>
+    <button onclick="newGame()">New Game</button>
+  </nav>
 
-      function App() {
-        return html`
-          <h1>Chet</h1>
-          <${Board} />
-        `;
-      }
+  <div id="board"></div>
 
-      ReactDOM.render(html`<${App} />`, document.getElementById('root'));
-    </script>
+  <script>
+    let game;
 
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/htm@3.0.4/dist/htm.umd.js"></script>
+    document.addEventListener('DOMContentLoaded', function () {
+      newGame();
+    });
+
+    async function makeMove(source, target) {
+      alert(`Move from ${source} to ${target}`);
+    }
+
+    async function newGame() {
+      const resp = await fetch('/api/games', { method: 'POST' });
+      game = await resp.json();
+      const config = {
+        pieceTheme: 'img/{piece}.png',
+        position: game.state,
+        draggable: true,
+        onDrop: makeMove,
+      };
+      const board = Chessboard('board', config);
+    }
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+    integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
+    integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD"
+    crossorigin="anonymous"></script>
 </body>
-</html>
 
+</html>

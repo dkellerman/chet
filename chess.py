@@ -165,8 +165,10 @@ class Game:
             piece_type = piece.lower()
             piece_color = piece.isupper()
             vectors = PIECE_VECTORS.get(piece_type)
+
+            # check if piece is pinned (ignore if allowed to capture king)
             if self._allow_king_capture:
-                pinned = None
+                pinned, pin_axis = None, None
             else:
                 pinned = pin and pin[0] == from_square
                 pin_axis = pin[1] if pinned else None
@@ -261,19 +263,19 @@ class Game:
 
         # add castles
         row = 0 if self.cur_color else 7
-        ks = "K" if self.cur_color else "k"
+        kside = "K" if self.cur_color else "k"
         if (
-            (ks in self.castles)
+            (kside in self.castles)
             and (not self.board.get((5, row)))
             and (not self.board.get((6, row)))
             and (self._allow_king_capture or (not (5, row) in attacks))
             and (self._allow_king_capture or (not (6, row) in attacks))
         ):
-            moves.append(((4, row), (6, row), dict(castle=ks)))
+            moves.append(((4, row), (6, row), dict(castle=kside)))
 
-        qs = "Q" if self.cur_color else "q"
+        qside = "Q" if self.cur_color else "q"
         if (
-            (qs in self.castles)
+            (qside in self.castles)
             and (not self.board.get((1, row)))
             and (not self.board.get((2, row)))
             and (not self.board.get((3, row)))
@@ -281,7 +283,7 @@ class Game:
             and (self._allow_king_capture or (not (2, row) in attacks))
             and (self._allow_king_capture or (not (3, row) in attacks))
         ):
-            moves.append(((4, row), (2, row), dict(castle=qs)))
+            moves.append(((4, row), (2, row), dict(castle=qside)))
 
         return moves
 
@@ -344,12 +346,14 @@ class Game:
             looking_for_pin = False
             maybe_pinned = None
             to_col, to_row = from_square
+
             while True:
                 to_col += col_dir
                 to_row += row_dir
                 to_square = (to_col, to_row)
                 if not ((0 <= to_col < 8) and (0 <= to_row < 8)):
                     break
+
                 if not looking_for_pin:
                     attacks.append(to_square)
                 attacked_piece = self.board.get(to_square)
@@ -508,6 +512,9 @@ class Game:
         self.state = state_str
         self.repititions = {board_str: 1}
 
+    def set_board(self, fen):
+        self.set_state(f"{fen} {' '.join(self.state.split()[1:])}")
+
     def get_state(self):
         board_str = self.board_to_fen(self.board)
         state_str = (
@@ -517,6 +524,25 @@ class Game:
             f" {self.draw_counter} {(len(self.history) // 2) or 1}"
         )
         return state_str
+
+    def board_to_fen(self, board):
+        board_str = ""
+        for row_index in range(7, -1, -1):
+            empty_count = 0
+            for col_index in range(8):
+                piece = board.get((col_index, row_index))
+                if piece:
+                    if empty_count > 0:
+                        board_str += str(empty_count)
+                        empty_count = 0
+                    board_str += piece
+                else:
+                    empty_count += 1
+            if empty_count > 0:
+                board_str += str(empty_count)
+            if row_index > 0:
+                board_str += "/"
+        return board_str
 
     def render_board(self, color=None, clear=False):
         color = color if color is not None else self.cur_color
@@ -529,9 +555,6 @@ class Game:
                 piece = self.board.get((col, row)) or "-"
                 print(piece, end=" ")
             print()
-
-    def set_board(self, fen):
-        self.set_state(f"{fen} {' '.join(self.state.split()[1:])}")
 
     @cache_by_game_state
     def is_legal_state(self):
@@ -570,25 +593,6 @@ class Game:
             if g.is_legal_state():
                 self.set_board(fen)
                 break
-
-    def board_to_fen(self, board):
-        board_str = ""
-        for row_index in range(7, -1, -1):
-            empty_count = 0
-            for col_index in range(8):
-                piece = board.get((col_index, row_index))
-                if piece:
-                    if empty_count > 0:
-                        board_str += str(empty_count)
-                        empty_count = 0
-                    board_str += piece
-                else:
-                    empty_count += 1
-            if empty_count > 0:
-                board_str += str(empty_count)
-            if row_index > 0:
-                board_str += "/"
-        return board_str
 
     @cache_by_game_state
     def get_position_score(self):

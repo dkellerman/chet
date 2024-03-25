@@ -7,12 +7,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 games = {}
 
+
 class handler(BaseHTTPRequestHandler):
     def load_games(self):
         return games
 
-    def save_games(self, games):
-        games = games
+    def save_games(self, g):
+        global games  # todo: redis
+        games = g
 
     def send_json(self, data, status=200):
         self.send_response(status)
@@ -23,7 +25,7 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         game_id = uuid.uuid4().hex[:8]
         game = Game()
-        state = game.get_board_state(full=True)
+        state = game.get_state()
         data = {"id": game_id, "state": state}
         games = self.load_games()
         games[game_id] = data
