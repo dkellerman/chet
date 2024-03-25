@@ -11,20 +11,6 @@ from typing import List, Tuple, Dict, Union, Optional, Literal, Set
 
 
 WHITE, BLACK = True, False
-EMPTY_STATE = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
-INITIAL_STATE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-NOTATION_RE = re.compile(
-    r"^([NBRQKP])?([a-h])?([1-8])?(x)?([a-h])([1-8])(=?[nrbqNRBQ])?"
-    r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
-)
-PIECE_VECTORS: Dict["Piece", Tuple[int, int]] = dict(
-    n=[(1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1)],
-    q=[(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)],
-    k=[(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)],
-    r=[(0, 1), (0, -1), (1, 0), (-1, 0)],
-    b=[(1, 1), (-1, 1), (1, -1), (-1, -1)],
-)
-PIECE_SCORES = dict(p=1, n=3, b=3, r=5, q=9, k=0)
 
 
 class Status(enum.Enum):
@@ -34,19 +20,21 @@ class Status(enum.Enum):
     DRAW = "Draw"
 
 
+class Action(enum.Enum):
+    RESIGN = "resign"
+
+
 # additional types
 Players = Tuple["Player", "Player"]
-Action = Literal["resign", "draw"]
 Promo = Literal["q", "r", "b", "n"]
-Coords = Tuple[int, int]
-Square = str
-Piece = Literal["p", "n", "b", "r", "q", "k", "P", "N", "B", "R", "Q", "K"]
+Coords = Tuple[int, int]  # col, row
+Square = str  # a1
+PieceType = Literal["p", "n", "b", "r", "q", "k", "P", "N", "B", "R", "Q", "K"]
 Castle = Literal["K", "Q", "k", "q"]
 Pin = Tuple[Coords, Coords]  # square, axis
-Board = Dict[Coords, Optional[Piece]]
 
 
-def cache_by_game_state(func):
+def cache_by_game_state(func: callable):
     cache = functools.lru_cache(maxsize=1024)
 
     @functools.wraps(func)
@@ -64,6 +52,9 @@ def cache_by_game_state(func):
 
 
 class Game:
+    EMPTY_STATE = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
+    INITIAL_STATE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
     def __init__(self, state=INITIAL_STATE, players: Optional[Players] = None) -> None:
         self.players: Players = players or [Human(), Computer()]
         self.history: List[str] = []
@@ -93,27 +84,24 @@ class Game:
             notation: str = move.to_notation(self)
 
         if move.action:
-            if move.action == "resign":
+            if move.action == Action.RESIGN:
                 self.status = Status.BWINS if self.cur_color else Status.WWINS
                 self.status_desc = "Resignation"
-            elif move.action == "draw":
-                self.status = Status.DRAW
-                self.status_desc = "Agreed to draw"
             self.history.append(notation)
             return
 
         piece = self.board[move.from_]
-        piece_type = piece.lower() if piece else None
-        color = piece.isupper() if piece else None
+        piece_type = piece.type if piece else None
+        color = piece.color if piece else None
         promo = move.promo.upper() if move.promo and self.cur_color else move.promo
 
         # move
         captured = self.board[move.to]
-        self.board[move.to] = promo or self.board[move.from_]
+        self.board[move.to] = Piece(promo) if promo else self.board[move.from_]
         self.board[move.from_] = None
 
         # mark enpassantable pawn
-        self.enpassant: str = (
+        self.enpassant: Square = (
             move.to
             if piece_type == "p" and abs(move.from_[1] - move.to[1]) == 2
             else None
@@ -121,10 +109,10 @@ class Game:
 
         # complete castle
         if piece_type == "k" and move.from_[0] == 4 and move.to[0] == 6:
-            self.board[(5, 0 if color else 7)] = "R" if color else "r"
+            self.board[(5, 0 if color else 7)] = Piece("R" if color else "r")
             self.board[(7, 0 if color else 7)] = None
         elif piece_type == "k" and move.from_[0] == 4 and move.to[0] == 2:
-            self.board[(3, 0 if color else 7)] = "R" if color else "r"
+            self.board[(3, 0 if color else 7)] = Piece("R" if color else "r")
             self.board[(0, 0 if color else 7)] = None
 
         # update castles available
@@ -150,14 +138,11 @@ class Game:
         self.repititions[board_state] = self.repititions.get(board_state, 0) + 1
 
         # is game over
-        if self._allow_king_capture and captured == "k":
-            self.status = Status.WWINS
-            self.status_desc = "King captured"
-        elif self._allow_king_capture and captured == "K":
-            self.status = Status.BWINS
+        if self._allow_king_capture and captured and captured.type == "k":
+            self.status = Status.BWINS if captured.color == WHITE else Status.WWINS
             self.status_desc = "King captured"
         elif self.is_checkmate():
-            self.status = Status.BWINS if self.cur_color else Status.WWINS
+            self.status = Status.BWINS if self.cur_color == WHITE else Status.WWINS
             self.status_desc = "Checkmate"
         elif self.is_stalemate():
             self.status = Status.DRAW
@@ -177,12 +162,9 @@ class Game:
         # get legal moves for current player
         moves: List[Move] = []
         for from_square, piece in self.board.items():
-            if piece is None or piece.isupper() != self.cur_color:
+            if piece is None or piece.color != self.cur_color:
                 continue
             from_col, from_row = from_square
-            piece_type = piece.lower()
-            piece_color = piece.isupper()
-            vectors = PIECE_VECTORS.get(piece_type)
 
             # check if piece is pinned (ignore if allowed to capture king)
             if self._allow_king_capture:
@@ -192,6 +174,7 @@ class Game:
                 pin_axis = pin[1] if is_pinned else None
 
             # adjust vectors based on pin (not relevant for pawn/king)
+            vectors = piece.vectors
             if is_pinned and vectors:
                 if pin_axis in [(0, 1), (0, -1)]:  # pinned to col
                     vectors = [v for v in vectors if v[1] == 0]
@@ -202,9 +185,9 @@ class Game:
                         [pin_axis, (-pin_axis[0], -pin_axis[1])]
                     )
 
-            if piece_type == "p":
-                row_dir = 1 if piece_color == WHITE else -1
-                row_start = 1 if piece_color == WHITE else 6
+            if piece.type == "p":
+                row_dir = 1 if piece.color == WHITE else -1
+                row_start = 1 if piece.color == WHITE else 6
                 push1 = (from_col, from_row + row_dir)
                 push2 = (from_col, from_row + (row_dir * 2))
                 cap1 = (from_col - 1, from_row + row_dir)
@@ -230,14 +213,14 @@ class Game:
                 if (
                     from_col > 0
                     and self.board.get(cap1)
-                    and self.board.get(cap1).isupper() != piece_color
+                    and self.board.get(cap1).color != piece.color
                     and not (is_pinned and pin_axis[0] != 1)
                 ):
                     _append_with_promos(cap1)
                 if (
                     from_col < 7
                     and self.board.get(cap2)
-                    and self.board.get(cap2).isupper() != piece_color
+                    and self.board.get(cap2).color != piece.color
                     and not (is_pinned and pin_axis[0] != -1)
                 ):
                     _append_with_promos(cap2)
@@ -250,31 +233,31 @@ class Game:
                     enp_to = (self.enpassant[0], from_row + row_dir)
                     moves.append(Move(from_square, enp_to, enpassant=True))
 
-            elif piece_type == "r":
+            elif piece.type == "r":
                 moves += self.get_moves_by_vectors(from_square, vectors)
 
-            elif piece_type == "q":
+            elif piece.type == "q":
                 moves += self.get_moves_by_vectors(from_square, vectors)
 
-            elif piece_type == "b":
+            elif piece.type == "b":
                 moves += self.get_moves_by_vectors(from_square, vectors)
 
-            elif piece_type == "n":
+            elif piece.type == "n":
                 for col_dir, row_dir in vectors:
                     col, row = from_col + col_dir, from_row + row_dir
                     to_square = (col, row)
                     to_piece = self.board.get(to_square)
                     if 0 <= col < 8 and 0 <= row < 8:
-                        if not to_piece or to_piece.isupper() != piece_color:
+                        if not to_piece or to_piece.color != piece.color:
                             moves.append(Move(from_square, (col, row)))
 
-            elif piece_type == "k":
+            elif piece.type == "k":
                 for col_dir, row_dir in vectors:
                     col, row = from_col + col_dir, from_row + row_dir
                     if 0 <= col < 8 and 0 <= row < 8:
                         to_square = (col, row)
                         to_piece = self.board.get(to_square)
-                        if (not to_piece or to_piece.isupper() != piece_color) and (
+                        if (not to_piece or to_piece.color != piece.color) and (
                             self._allow_king_capture or (to_square not in attacks)
                         ):
                             moves.append(Move(from_square, (col, row)))
@@ -312,13 +295,12 @@ class Game:
         color = not self.cur_color
 
         for from_square, piece in self.board.items():
-            if piece is None or piece.isupper() != color:
+            if piece is None or (piece.color != color):
                 continue
             from_col, from_row = from_square
-            piece_type = piece.lower()
-            vectors = PIECE_VECTORS.get(piece_type)
+            vectors = piece.vectors
 
-            if piece_type == "p":
+            if piece.type == "p":
                 row_dir = 1 if color == WHITE else -1
                 if from_col > 0:
                     cap1 = (from_col - 1, from_row + row_dir)
@@ -327,28 +309,28 @@ class Game:
                     cap2 = (from_col + 1, from_row + row_dir)
                     attacks.add(cap2)
 
-            elif piece_type == "r":
+            elif piece.type == "r":
                 r_attacks, r_pin = self.get_attacks_by_vectors(from_square, vectors)
                 attacks.update(r_attacks)
                 pin = pin or r_pin
 
-            elif piece_type == "q":
+            elif piece.type == "q":
                 q_attacks, q_pin = self.get_attacks_by_vectors(from_square, vectors)
                 attacks.update(q_attacks)
                 pin = pin or q_pin
 
-            elif piece_type == "b":
+            elif piece.type == "b":
                 b_attacks, b_pin = self.get_attacks_by_vectors(from_square, vectors)
                 attacks.update(b_attacks)
                 pin = pin or b_pin
 
-            elif piece_type == "n":
+            elif piece.type == "n":
                 for dcol, drow in vectors:
                     col, row = from_col + dcol, from_row + drow
                     if 0 <= col < 8 and 0 <= row < 8:
                         attacks.add((col, row))
 
-            elif piece_type == "k":
+            elif piece.type == "k":
                 for dcol, drow in vectors:
                     col, row = from_col + dcol, from_row + drow
                     if 0 <= col < 8 and 0 <= row < 8:
@@ -361,7 +343,7 @@ class Game:
     ) -> Tuple[List[Coords], Optional[Pin]]:
         attacks: Optional[List[Coords]] = []
         pin: Optional[Pin] = None
-        color = self.board.get(from_square).isupper()
+        color = self.board.get(from_square).color
 
         for col_dir, row_dir in vectors:
             looking_for_pin = False
@@ -380,10 +362,10 @@ class Game:
                 attacked_piece = self.board.get(to_square)
                 if attacked_piece is None:
                     continue
-                if attacked_piece.isupper() == color:
+                if attacked_piece.color == color:
                     # TODO: handle the dreaded enpassant-pin
                     break
-                if attacked_piece.lower() == "k":
+                if attacked_piece.type == "k":
                     if looking_for_pin:
                         pin = maybe_pinned
                     break
@@ -397,7 +379,7 @@ class Game:
     def get_moves_by_vectors(self, from_square, vectors) -> List["Move"]:
         moves: List[Move] = []
         for row_dir, col_dir in vectors:
-            piece_color = self.board[from_square].isupper()
+            piece = self.board[from_square]
             col, row = from_square
             while True:
                 row += row_dir
@@ -407,7 +389,7 @@ class Game:
                     break
                 if not self.board.get(to_square):
                     moves.append(Move(from_square, to_square))
-                elif self.board.get(to_square).isupper() != piece_color:
+                elif self.board.get(to_square).color != piece.color:
                     moves.append(Move(from_square, to_square, dict()))
                     break
                 else:
@@ -425,8 +407,14 @@ class Game:
     @cache_by_game_state
     def is_check(self) -> bool:
         attacks, _ = self.get_attacks()
-        king: Piece = "K" if self.cur_color else "k"
-        return any([self.board.get(sq) == king for sq in attacks])
+        return any(
+            [
+                self.board.get(sq)
+                and self.board[sq].type == "k"
+                and self.board[sq].color == self.cur_color
+                for sq in attacks
+            ]
+        )
 
     def is_checkmate(self) -> bool:
         return self.is_check() and not len(self.get_legal_moves())
@@ -454,17 +442,7 @@ class Game:
         if full_move_counter:
             self.history: List[str] = [""] * ((int(full_move_counter) - 1) * 2)
 
-        board: Board = collections.defaultdict(lambda: None)
-        rows = board_str.split("/")
-        for row_index, row in enumerate(rows):
-            col_index = 0
-            for char in row:
-                if char.isdigit():
-                    col_index += int(char)
-                else:
-                    board[(col_index, 7 - row_index)] = char
-                    col_index += 1
-        self.board: Board = board
+        self.board: Board = Board.from_fen(board_str)
         self.state: str = state_str
         self.repititions: Dict[str, int] = {board_str: 1}
 
@@ -472,7 +450,7 @@ class Game:
         self.set_state(f"{fen} {' '.join(self.state.split()[1:])}")
 
     def get_state(self) -> str:
-        board_str = self.board_to_fen(self.board)
+        board_str = self.board.to_fen()
         state_str = (
             f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
             f" {''.join(self.castles) if self.castles else '-'}"
@@ -480,25 +458,6 @@ class Game:
             f" {self.draw_counter} {(len(self.history) // 2) or 1}"
         )
         return state_str
-
-    def board_to_fen(self, board: Board) -> str:
-        board_str = ""
-        for row_index in range(7, -1, -1):
-            empty_count = 0
-            for col_index in range(8):
-                piece = board.get((col_index, row_index))
-                if piece:
-                    if empty_count > 0:
-                        board_str += str(empty_count)
-                        empty_count = 0
-                    board_str += piece
-                else:
-                    empty_count += 1
-            if empty_count > 0:
-                board_str += str(empty_count)
-            if row_index > 0:
-                board_str += "/"
-        return board_str
 
     def render_board(self, color: Optional[bool] = None, clear: bool = False) -> None:
         color = color if color is not None else self.cur_color
@@ -515,13 +474,13 @@ class Game:
     @cache_by_game_state
     def is_legal_state(self) -> bool:
         # 2 kings
-        if len([p for p in self.board.values() if p in "kK"]) != 2:
+        if len([p for p in self.board.values() if p and p.type == "k"]) != 2:
             return False
         # no pawns on first/last row
         for col in range(8):
             if (
-                self.board.get((col, 0), "-") in "Pp"
-                or self.board.get((col, 7), "-") in "Pp"
+                getattr(self.board.get((col, 0)), "type", None) == "p"
+                or getattr(self.board.get((col, 7)), "type", None) == "p"
             ):
                 return False
         # player can't be in check if not their turn
@@ -543,7 +502,7 @@ class Game:
                 if board[i] == "1" and random.random() < 0.5:
                     board[i] = random.choice(pieces)
             board = {(i % 8, 7 - i // 8): board[i] for i in range(64)}
-            fen = self.board_to_fen(board)
+            fen = self.board.to_fen()
             g = Game()
             g.set_board(fen)
             if g.is_legal_state():
@@ -561,12 +520,12 @@ class Game:
 
         wscore, bscore = 0, 0
         for piece in self.board.values():
-            piece = piece or "-"
-            val = PIECE_SCORES.get(piece.lower(), 0)
-            if piece.isupper():
-                wscore += val
+            if not piece:
+                continue
+            if piece.color == WHITE:
+                wscore += piece.value
             else:
-                bscore += val
+                bscore += piece.value
         return wscore - bscore
 
     @property
@@ -630,7 +589,74 @@ class Human(Player):
         return move
 
 
+class Board:
+    def __init__(self, board: Dict[Coords, Optional["Piece"]] = None):
+        self.board: Dict[Coords, Optional[Piece]] = board or collections.defaultdict(
+            lambda: None
+        )
+
+    def __getitem__(self, coords: Coords) -> Optional["Piece"]:
+        return self.board.get(coords)
+
+    def __setitem__(self, coords: Coords, piece: Optional[Union["Piece", str]]) -> None:
+        if type(piece) == str:
+            piece: Piece = Piece(piece)
+        self.board[coords] = piece
+
+    def __contains__(self, coords: Coords) -> bool:
+        return coords in self.board
+
+    def items(self) -> List[Tuple[Coords, Optional["Piece"]]]:
+        return list(self.board.items())
+
+    def values(self) -> List[Optional["Piece"]]:
+        return list(self.board.values())
+
+    def get(
+        self, coords: Coords, default: Optional["Piece"] = None
+    ) -> Optional["Piece"]:
+        return self.board.get(coords, default)
+
+    def to_fen(self) -> str:
+        board_str = ""
+        for row_index in range(7, -1, -1):
+            empty_count = 0
+            for col_index in range(8):
+                piece = self.board.get((col_index, row_index))
+                if piece:
+                    if empty_count > 0:
+                        board_str += str(empty_count)
+                        empty_count = 0
+                    board_str += str(piece)
+                else:
+                    empty_count += 1
+            if empty_count > 0:
+                board_str += str(empty_count)
+            if row_index > 0:
+                board_str += "/"
+        return board_str
+
+    @classmethod
+    def from_fen(cls, fen: str) -> "Board":
+        board: Dict[Coords, Optional[Piece]] = collections.defaultdict(lambda: None)
+        rows = fen.split("/")
+        for row_index, row in enumerate(rows):
+            col_index = 0
+            for char in row:
+                if char.isdigit():
+                    col_index += int(char)
+                else:
+                    board[(col_index, 7 - row_index)] = Piece(char)
+                    col_index += 1
+        return cls(board)
+
+
 class Move:
+    NOTATION_RE = re.compile(
+        r"^([NBRQKP])?([a-h])?([1-8])?(x)?([a-h])([1-8])(=?[nrbqNRBQ])?"
+        r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
+    )
+
     def __init__(
         self,
         from_: Optional[Coords] = None,
@@ -652,11 +678,7 @@ class Move:
             return False
         if obj.action:
             return obj.action == self.action
-        return (
-            obj.from_ == self.from_
-            and obj.to == self.to
-            and obj.promo == self.promo
-        )
+        return obj.from_ == self.from_ and obj.to == self.to and obj.promo == self.promo
 
     @classmethod
     def parse(cls, val: str, game: Game) -> Optional["Move"]:
@@ -665,7 +687,7 @@ class Move:
         if not val:
             return None
         elif "resign" in val.lower():
-            return Move(action="resign")
+            return Move(action=Action.RESIGN)
         elif val.lower().startswith("o-o-o") or val.lower().startswith("0-0-0"):
             row = 0 if game.cur_color else 7
             return Move((4, row), (2, row), castle="Q" if game.cur_color else "q")
@@ -673,13 +695,13 @@ class Move:
             row = 0 if game.cur_color else 7
             return Move((4, row), (6, row), castle="K" if game.cur_color else "k")
 
-        match = NOTATION_RE.match(val)
+        match = cls.NOTATION_RE.match(val)
 
         if not match:
             return None
 
-        piece_from: str = match.group(1) or "p"
-        piece_from = piece_from.upper() if game.cur_color else piece_from.lower()
+        piece_from: str = (match.group(1) or "p").lower()
+        piece_from = Piece(piece_from, game.cur_color)
         col_from: int = ord(match.group(2)) - ord("a") if match.group(2) else None
         row_from: int = int(match.group(3)) - 1 if match.group(3) else None
         col_to: int = ord(match.group(5)) - ord("a")
@@ -703,8 +725,8 @@ class Move:
             promo = promo.lstrip("=").lower()
 
         castle = None
-        piece_type = (game.board.get((col_from, row_from)) or '-').lower()
-        if col_from == 4 and piece_type == "k":
+        piece = game.board.get((col_from, row_from))
+        if col_from == 4 and piece and piece.type == "k":
             if col_to == 2:
                 castle = "Q" if game.cur_color else "q"
             elif col_to == 6:
@@ -727,6 +749,46 @@ class Move:
 
     def __repr__(self) -> str:
         return self.to_notation(None)
+
+
+class Piece:
+    SCORES = dict(p=1, n=3, b=3, r=5, q=9, k=0)
+    VECTORS: Dict["Piece", Tuple[int, int]] = dict(
+        n=[(1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1)],
+        q=[(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)],
+        k=[(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)],
+        r=[(0, 1), (0, -1), (1, 0), (-1, 0)],
+        b=[(1, 1), (-1, 1), (1, -1), (-1, -1)],
+    )
+
+    def __init__(self, char: PieceType, color: Optional[bool] = None) -> None:
+        self.color = color or char.isupper()
+        self.type = char.lower()
+
+    def __eq__(self, obj: object) -> bool:
+        if not obj or not type(obj) == Piece:
+            return False
+        return obj.color == self.color and obj.type == self.type
+
+    def __str__(self) -> str:
+        return self.type.upper() if self.color == WHITE else self.type
+
+    def __repr__(self) -> str:
+        return f"Piece('{self.type}', '{self.color}')"
+
+    def is_white(self) -> bool:
+        return self.color == WHITE
+
+    def is_black(self) -> bool:
+        return self.color == BLACK
+
+    @property
+    def vectors(self) -> Tuple[int, int]:
+        return self.VECTORS.get(self.type, [])
+
+    @property
+    def value(self) -> int:
+        return self.SCORES.get(self.type, 0)
 
 
 def sq2c(sq: Square) -> Coords:

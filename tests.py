@@ -133,9 +133,9 @@ class TestChess(unittest.TestCase):
         self.turn = 0
 
         # actions
-        self.assertEqual(Move.parse("resign", g), Move(None, None, action="resign"))
+        self.assertEqual(Move.parse("resign", g), Move(None, None, action=Action.RESIGN))
         self.assertEqual(
-            Move.parse("White Resigns", g), Move(None, None, action="resign")
+            Move.parse("White Resigns", g), Move(None, None, action=Action.RESIGN)
         )
 
     def test_make_move(self):
@@ -278,7 +278,9 @@ class TestChess(unittest.TestCase):
         # basic
         g = Game("8/2p5/8/4B3/8/6P1/8/8 w - - 0 1")
         moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
-        self.assertLegalMoves(g, "e5d6|e5xc7|e5f4|e5h8|e5g7|e5f6|e5d4|e5c3|e5b2|e5a1|g3g4")
+        self.assertLegalMoves(
+            g, "e5d6|e5xc7|e5f4|e5h8|e5g7|e5f6|e5d4|e5c3|e5b2|e5a1|g3g4"
+        )
         # pinned to row/col
         g = Game("8/4K2/8/4B3/8/4r2/8/8/8 w - - 0 1")
         moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
@@ -307,7 +309,7 @@ class TestChess(unittest.TestCase):
             g,
             "e5e6|e5xe7|e5e4|e5d5|e5c5|e5b5|e5a5|e5f5|e5g5|e5h5|"
             "e5a1|e5b2|e5c3|e5d4|e5f6|e5g7|e5h8|"
-            "e5d6|e5c7|e5b8|e5f4|e5g3|e5h2|e3e4"
+            "e5d6|e5c7|e5b8|e5f4|e5g3|e5h2|e3e4",
         )
         # pinned diagonal
         g = Game("K7/1Q6/2b5/8/8/8/8/8 w - - 0 1")
