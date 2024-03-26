@@ -7,6 +7,7 @@ import os
 import functools
 import collections
 import enum
+import argparse
 from typing import List, Tuple, Dict, Union, Optional, Literal, Set
 
 
@@ -463,10 +464,11 @@ class Game:
         color = color if color is not None else self.cur_color
         if clear:
             os.system("clear")
-        row_range = range(7, -1, -1) if color == WHITE else range(8)
+        range_dir = range(7, -1, -1) if color == WHITE else range(8)
+        col_dir = range(7, -1, -1) if color == BLACK else range(8)
         print()
-        for row in row_range:
-            for col in range(8):
+        for row in range_dir:
+            for col in col_dir:
                 piece = self.board.get((col, row)) or "-"
                 print(piece, end=" ")
             print()
@@ -562,17 +564,17 @@ class Human(Player):
 
         # print last move if present
         if game.last_move:
-            print(f"[{'B' if game.cur_color else 'W'}]", game.last_move)
+            print(f"\n[{'B' if game.cur_color else 'W'}]", game.last_move)
 
         move = None
         while not move:
-            prompt = f"[{'W' if game.cur_color else 'B'}] => "
+            prompt = f"\n[{'W' if game.cur_color else 'B'}] => "
             val = input(prompt).strip()
             if val in ["quit", "exit"]:
                 sys.exit(0)
             elif val in ["legal", "l"]:
                 legal_moves = game.get_legal_moves()
-                legal_moves = [m.to_notation(self) for m in legal_moves]
+                legal_moves = [m.to_notation(game) for m in legal_moves]
                 # consolidate moves with pawn promotions
                 legal_moves = list(
                     set([re.sub(r"[qrbn]$", "", l) for l in legal_moves])
@@ -580,7 +582,7 @@ class Human(Player):
                 print("Legal moves:", "|".join(legal_moves))
                 continue
 
-            move = Move.parse(val, self)
+            move = Move.parse(val, game)
             if not move:
                 print("Please enter a move, e.g. e2e4, or 'quit' to exit.")
             elif not game.is_legal_move(move):
@@ -802,10 +804,28 @@ def c2sq(coords: Coords) -> Square:
 
 
 if __name__ == "__main__":
+    argp = argparse.ArgumentParser()
+    argp.add_argument("--play", "-p", type=int, default=0)
+    argp.add_argument("--allow-king-capture", "-k", action='store_true')
+    argp.add_argument("--black", "-b", action='store_true')
+    options = argp.parse_args()
+
+    # self-play
+    if options.play > 0:
+        from tqdm import tqdm
+
+        for _ in tqdm(range(options.play)):
+            game = Game(players=(Computer(), Computer()))
+            game._allow_king_capture = options.allow_king_capture
+            game.play()
+        sys.exit(0)
+
+    # cli human vs computer
     players = (Human(), Computer())
-    if "-b" in sys.argv:
+    if options.black:
         players = tuple(reversed(players))
     game = Game(players=players)
+    game._allow_king_capture = options.allow_king_capture
     game.play()
 
     # finished:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import unittest, sys, io
+import unittest, sys, io, csv
 from chess import *
 
 
@@ -64,7 +64,6 @@ class TestChess(unittest.TestCase):
 
     def test_notation(self):
         g = Game()
-
         self.assertEqual(Move((0, 1), (0, 3)).to_notation(g), "a2a4")
         self.assertEqual(Move.parse("a2a4", g), Move((0, 1), (0, 3)))
         self.assertEqual(Move.parse("e2e4", g), Move((4, 1), (4, 3)))
@@ -74,11 +73,9 @@ class TestChess(unittest.TestCase):
         self.assertEqual(Move.parse("a2a4=Q", g), Move((0, 1), (0, 3), promo="q"))
         self.assertEqual(Move.parse("a2a4=p", g), None)
         self.assertEqual(Move.parse("a2a4p", g), None)
-
         self.assertEqual(Move.parse("e4", g), Move((4, 1), (4, 3)))
         self.assertEqual(Move.parse("Pe4", g), Move((4, 1), (4, 3)))
         self.assertEqual(Move.parse("pe4", g), None)
-
         self.assertEqual(Move.parse("Nf3", g), Move((6, 0), (5, 2)))
         self.assertEqual(Move.parse("Nxf3", g), Move((6, 0), (5, 2)))
         self.assertEqual(Move.parse("Ngf3", g), Move((6, 0), (5, 2)))
@@ -90,7 +87,6 @@ class TestChess(unittest.TestCase):
         self.assertEqual(Move.parse("N2f3", g), None)
         self.assertEqual(Move.parse("e1", g), None)
         self.assertEqual(Move.parse("N8f3", g), None)
-
         # ignores annotations
         self.assertEqual(Move.parse("Nf3+", g), Move((6, 0), (5, 2)))
         self.assertEqual(Move.parse("Nf3++", g), Move((6, 0), (5, 2)))
@@ -108,7 +104,6 @@ class TestChess(unittest.TestCase):
         self.assertEqual(Move.parse("e4xd3EP", g), Move((4, 3), (3, 2)))
         self.assertEqual(Move.parse("e4xd3 eP", g), Move((4, 3), (3, 2)))
         self.assertEqual(Move.parse("e4xd3 EP", g), Move((4, 3), (3, 2)))
-
         # castles
         self.assertEqual(Move.parse("O-O", g), Move((4, 0), (6, 0), castle="K"))
         self.assertEqual(Move.parse("O-O-O+", g), Move((4, 0), (2, 0), castle="Q"))
@@ -120,20 +115,23 @@ class TestChess(unittest.TestCase):
         self.assertEqual(Move.parse("O-O", g), Move((4, 7), (6, 7), castle="k"))
         self.assertEqual(Move.parse("O-O-o!", g), Move((4, 7), (2, 7), castle="q"))
         g.turn = 0
-
         g.make_moves(["e2e4", "e7e5", "d2d4", "d7d5"])
         self.assertEqual(Move.parse("Bc4", g), Move((5, 0), (2, 3)))
         self.assertEqual(Move.parse("Bxc4", g), Move((5, 0), (2, 3)))
         self.assertEqual(Move.parse("Bc5", g), None)
         self.assertEqual(Move.parse("Bxc5", g), None)
-
         g.make_move("a1a3")
         self.assertEqual(Move.parse("Bc5", g), Move((5, 7), (2, 4)))
         self.assertEqual(Move.parse("Bxc5", g), Move((5, 7), (2, 4)))
         self.turn = 0
+        g = Game("rnbqkbnr/pppppppp/8/8/8/5n2/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        self.assertEqual(Move.parse("gxf3", g), Move.parse("g2xf3", g))
+        self.assertEqual(Move.parse("gxf3", g), Move.parse("Pg2xf3", g))
 
         # actions
-        self.assertEqual(Move.parse("resign", g), Move(None, None, action=Action.RESIGN))
+        self.assertEqual(
+            Move.parse("resign", g), Move(None, None, action=Action.RESIGN)
+        )
         self.assertEqual(
             Move.parse("White Resigns", g), Move(None, None, action=Action.RESIGN)
         )
@@ -399,7 +397,7 @@ class TestChess(unittest.TestCase):
         val = _capture_stdout(g.render_board)
         self.assertTrue(val.startswith("\nr n b q k b n r \n"))
         val = _capture_stdout(g.render_board, color=BLACK)
-        self.assertTrue(val.startswith("\nR N B Q K B N R \n"))
+        self.assertTrue(val.startswith("\nR N B K Q B N R \n"))
 
     def test_allow_king_capture(self):
         g = Game("rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1")
@@ -457,5 +455,37 @@ def _capture_stdout(func, *args, **kwargs):
     return out.getvalue()
 
 
+def archive_test():
+    from tqdm import tqdm
+
+    with open("./misc/archive.pgn", "r") as file:
+        lines = file.readlines()
+        game_ct = 0
+        for l in lines:
+            if l.strip().startswith("1."):
+                l = re.sub(r"\d+\.", "", l)
+                l = re.sub(r"\{[^\}]*\}", "", l)
+                l = re.sub(r"0-1|1-0|1/2-1/2", "", l)
+                moves = [m.strip() for m in l.split()]
+                game = Game()
+                good = True
+                for move in moves:
+                    if game_ct == 10:
+                        print(move)
+                    m = Move.parse(move, game)
+                    if m is None:
+                        print(move, end=" ")
+                        good = False
+                        break
+                    else:
+                        game.make_move(m)
+                game_ct += 1
+                if game_ct > 10:
+                    break
+
+
 if __name__ == "__main__":
-    unittest.main()
+    if "-a" in sys.argv:
+        archive_test()
+    else:
+        unittest.main()

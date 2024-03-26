@@ -2,6 +2,7 @@
 
 ## TODO
 - rules
+  - black not moving out of check?
   - insufficient material
   - enp pin
   - check for ending right away
@@ -9,9 +10,6 @@
 - lookahead
 
 - refactors
-  - types
-  - move class -> to/from notation
-  - board class -> allow for bitboards
   - player-based state
 
 - UI/server
