@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import unittest, sys, io, csv
+import unittest, sys, io
 from chess import *
 
 
@@ -456,8 +456,6 @@ def _capture_stdout(func, *args, **kwargs):
 
 
 def archive_test():
-    from tqdm import tqdm
-
     with open("./misc/archive.pgn", "r") as file:
         lines = file.readlines()
         game_ct = 0

@@ -7,9 +7,8 @@
   - enp pin
   - check for ending right away
 
-- lookahead
-
 - refactors
+  - lookahead
   - player-based state
 
 - UI/server

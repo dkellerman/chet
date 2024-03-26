@@ -53,10 +53,10 @@ def cache_by_game_state(func: callable):
 
 
 class Game:
-    EMPTY_STATE = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
-    INITIAL_STATE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    EMPTY = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
+    STANDARD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-    def __init__(self, state=INITIAL_STATE, players: Optional[Players] = None) -> None:
+    def __init__(self, state=STANDARD, players: Optional[Players] = None) -> None:
         self.players: Players = players or [Human(), Computer()]
         self.history: List[str] = []
         self.status: Status = None
@@ -97,7 +97,6 @@ class Game:
         promo = move.promo.upper() if move.promo and self.cur_color else move.promo
 
         # move
-        captured = self.board[move.to]
         self.board[move.to] = Piece(promo) if promo else self.board[move.from_]
         self.board[move.from_] = None
 
@@ -137,10 +136,16 @@ class Game:
         # 3-fold repetition update
         board_state = self.state.split()[0]
         self.repititions[board_state] = self.repititions.get(board_state, 0) + 1
+        self.check_game_over()
 
-        # is game over
-        if self._allow_king_capture and captured and captured.type == "k":
-            self.status = Status.BWINS if captured.color == WHITE else Status.WWINS
+    def check_game_over(self) -> bool:
+        board_state = self.state.split()[0]
+
+        if self._allow_king_capture and "k" not in board_state:
+            self.status = Status.WWINS
+            self.status_desc = "King captured"
+        elif self._allow_king_capture and "K" not in board_state:
+            self.status = Status.BWINS
             self.status_desc = "King captured"
         elif self.is_checkmate():
             self.status = Status.BWINS if self.cur_color == WHITE else Status.WWINS
@@ -446,6 +451,7 @@ class Game:
         self.board: Board = Board.from_fen(board_str)
         self.state: str = state_str
         self.repititions: Dict[str, int] = {board_str: 1}
+        self.check_game_over()
 
     def set_board(self, fen: str) -> None:
         self.set_state(f"{fen} {' '.join(self.state.split()[1:])}")
@@ -529,6 +535,11 @@ class Game:
             else:
                 bscore += piece.value
         return wscore - bscore
+
+    def lookahead(self, move):
+        g = Game(state=self.get_state())
+        g.make_move(move)
+        return g
 
     @property
     def cur_color(self) -> bool:
@@ -806,8 +817,8 @@ def c2sq(coords: Coords) -> Square:
 if __name__ == "__main__":
     argp = argparse.ArgumentParser()
     argp.add_argument("--play", "-p", type=int, default=0)
-    argp.add_argument("--allow-king-capture", "-k", action='store_true')
-    argp.add_argument("--black", "-b", action='store_true')
+    argp.add_argument("--allow-king-capture", "-k", action="store_true")
+    argp.add_argument("--black", "-b", action="store_true")
     options = argp.parse_args()
 
     # self-play
