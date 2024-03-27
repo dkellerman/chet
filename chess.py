@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.11
 
 import re
 import random
@@ -9,7 +9,7 @@ import collections
 import enum
 import argparse
 import uuid
-from typing import List, Tuple, Dict, Union, Optional, Literal, Set
+from typing import Union, Optional, Literal
 
 
 WHITE, BLACK = True, False
@@ -27,13 +27,13 @@ class Action(enum.Enum):
 
 
 # additional types
-Players = Tuple["Player", "Player"]
+Players = tuple["Player", "Player"]
 Promo = Literal["q", "r", "b", "n"]
-Coords = Tuple[int, int]  # col, row
+Coords = tuple[int, int]  # col, row
 Square = str  # a1
 PieceType = Literal["p", "n", "b", "r", "q", "k", "P", "N", "B", "R", "Q", "K"]
 Castle = Literal["K", "Q", "k", "q"]
-Pin = Tuple[Coords, Coords]  # square, axis
+Pin = tuple[Coords, Coords]  # square, axis
 
 
 def cache_by_game_state(func: callable):
@@ -62,7 +62,7 @@ class Game:
     ) -> None:
         self.id = id or uuid.uuid4().hex
         self.players: Players = players or [Human(), Computer()]
-        self.history: List[str] = []
+        self.history: list[str] = []
         self.status: Status = None
         self.status_desc: str = None
         self._allow_king_capture = False
@@ -76,7 +76,7 @@ class Game:
             move = self.cur_player.get_move(self)
             self.make_move(move)
 
-    def make_moves(self, moves: List["Move"]) -> None:
+    def make_moves(self, moves: list["Move"]) -> None:
         for move in moves:
             self.make_move(move)
 
@@ -165,12 +165,12 @@ class Game:
             self.status_desc = "Threefold repetition"
 
     @cache_by_game_state
-    def get_legal_moves(self) -> List["Move"]:
+    def get_legal_moves(self) -> list["Move"]:
         # first get opponent attacks and pins
         attacks, pin = self.get_attacks()
 
         # get legal moves for current player
-        moves: List[Move] = []
+        moves: list[Move] = []
         for from_square, piece in self.board.items():
             if piece is None or piece.color != self.cur_color:
                 continue
@@ -299,8 +299,8 @@ class Game:
         return moves
 
     @cache_by_game_state
-    def get_attacks(self) -> Tuple[Set[Coords], Optional[Pin]]:
-        attacks: Tuple[Set[Coords]] = set()
+    def get_attacks(self) -> tuple[set[Coords], Optional[Pin]]:
+        attacks: tuple[set[Coords]] = set()
         pin: Optional[Pin] = None
         color = not self.cur_color
 
@@ -350,8 +350,8 @@ class Game:
 
     def get_attacks_by_vectors(
         self, from_square, vectors
-    ) -> Tuple[List[Coords], Optional[Pin]]:
-        attacks: Optional[List[Coords]] = []
+    ) -> tuple[list[Coords], Optional[Pin]]:
+        attacks: Optional[list[Coords]] = []
         pin: Optional[Pin] = None
         color = self.board.get(from_square).color
 
@@ -386,8 +386,8 @@ class Game:
 
         return attacks, pin
 
-    def get_moves_by_vectors(self, from_square, vectors) -> List["Move"]:
-        moves: List[Move] = []
+    def get_moves_by_vectors(self, from_square, vectors) -> list["Move"]:
+        moves: list[Move] = []
         for row_dir, col_dir in vectors:
             piece = self.board[from_square]
             col, row = from_square
@@ -439,9 +439,9 @@ class Game:
         if turn:
             self.turn: int = 0 if turn == "w" else 1
         if castles and castles != "-":
-            self.castles: List[Castle] = list(castles)
+            self.castles: list[Castle] = list(castles)
         else:
-            self.castles: List[Castle] = []
+            self.castles: list[Castle] = []
         if enpassant and (enpassant != "-"):
             enpassant: Square = enpassant.lower() if enpassant else None
             self.enpassant = sq2c(enpassant)
@@ -450,11 +450,11 @@ class Game:
         if draw_counter:
             self.draw_counter = int(draw_counter)
         if full_move_counter:
-            self.history: List[str] = [""] * ((int(full_move_counter) - 1) * 2)
+            self.history: list[str] = [""] * ((int(full_move_counter) - 1) * 2)
 
         self.board: Board = Board.from_fen(board_str)
         self.state: str = state_str
-        self.repititions: Dict[str, int] = {board_str: 1}
+        self.repititions: dict[str, int] = {board_str: 1}
         self.check_game_over()
 
     def set_board(self, fen: str) -> None:
@@ -617,8 +617,8 @@ class Human(Player):
 
 
 class Board:
-    def __init__(self, board: Dict[Coords, Optional["Piece"]] = None):
-        self.board: Dict[Coords, Optional[Piece]] = board or collections.defaultdict(
+    def __init__(self, board: dict[Coords, Optional["Piece"]] = None):
+        self.board: dict[Coords, Optional[Piece]] = board or collections.defaultdict(
             lambda: None
         )
 
@@ -633,10 +633,10 @@ class Board:
     def __contains__(self, coords: Coords) -> bool:
         return coords in self.board
 
-    def items(self) -> List[Tuple[Coords, Optional["Piece"]]]:
+    def items(self) -> list[tuple[Coords, Optional["Piece"]]]:
         return list(self.board.items())
 
-    def values(self) -> List[Optional["Piece"]]:
+    def values(self) -> list[Optional["Piece"]]:
         return list(self.board.values())
 
     def get(
@@ -665,7 +665,7 @@ class Board:
 
     @classmethod
     def from_fen(cls, fen: str) -> "Board":
-        board: Dict[Coords, Optional[Piece]] = collections.defaultdict(lambda: None)
+        board: dict[Coords, Optional[Piece]] = collections.defaultdict(lambda: None)
         rows = fen.split("/")
         for row_index, row in enumerate(rows):
             col_index = 0
@@ -780,7 +780,7 @@ class Move:
 
 class Piece:
     SCORES = dict(p=1, n=3, b=3, r=5, q=9, k=0)
-    VECTORS: Dict["Piece", Tuple[int, int]] = dict(
+    VECTORS: dict["Piece", tuple[int, int]] = dict(
         n=[(1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1)],
         q=[(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)],
         k=[(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)],
@@ -810,7 +810,7 @@ class Piece:
         return self.color == BLACK
 
     @property
-    def vectors(self) -> Tuple[int, int]:
+    def vectors(self) -> tuple[int, int]:
         return self.VECTORS.get(self.type, [])
 
     @property

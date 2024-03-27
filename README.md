@@ -1,5 +1,23 @@
 # Chess
 
+-research-
+linux/mac perf utils
+vercel kv python
+chessboardjs options
+data urls
+chess llm post
+why O(b^d/2) for minimax
+lru cache impl
+extend pdb?
+python timeit
+flops
+ui layout
+mac clockspeed & general stats (flops etc)
+parallelization
+py typing checks
+
+
+
 ## TODO
 - rules
   - must move out of check
@@ -7,8 +25,6 @@
   - insufficient material
   - randomize with n pieces
   - illegal pos if it's your turn and no moves to make
-  - game to/from dict
-    - add id to game
 
 - minimax player
   - lookahead tree
@@ -19,6 +35,10 @@
   - load/save player
 
 - profile: perf & mem/caching
+  - setup jupyter notebook for testing
+  - benchmark.py
+    - print timeits for all major functions
+  - play archive loop with -n param & cProfile
   - self-play loop w stats
     - cli args
     - total time
@@ -37,6 +57,7 @@
     - avg number of attacked pieces/squares -> contact amount
       - track over course of game
   - define baseline metrics
+    - what is the distribution of position scores?
     - min/max/avg moves per game (archive vs random)
     - moves calculated by avg minimax search (w pruning)
     - how important is 50 move rule & 3-fold rep?
@@ -56,6 +77,7 @@
     - what percentage of random positions are legal?
       - for n pieces on the board, what is the total state space?
   - define goals (g/s or m/s, memory, etc)
+  - garbage collection debugging
   - archive test & timing
   - profiler
   - timeits
@@ -63,18 +85,26 @@
   - mem reqs, adjust cache
   - htop etc - research
   - try:
-    - unmake move (or clone game instead of using fen)
-    - back to recursion
-    - king capture
-    - process pool
-    - pruning
-    - order moves by capture, etc
-    - bitboards
-    - cpython
-    - mojo
-    - convolution approaches?
-    - 1d array
-    - more tuples/frozen/sets etc
+    - basic
+      - bitboards
+      - fen optim -> diff? bits->fen?
+      - cache optim?
+      - list comprehensions?
+      - more tuples/frozen/sets etc
+      - 1d board array
+      - back to recursion
+      - numpy
+      - cpython
+      - mojo
+    - lookahead/minimax
+      - unmake move (or clone game instead of using fen)
+      - king capture
+      - pruning
+      - order moves by capture, etc
+    - parallel
+      - process pool
+      - gpu?
+      - convolution approaches?
 
 - UI/server
   - layout & pieces
