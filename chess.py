@@ -8,6 +8,7 @@ import functools
 import collections
 import enum
 import argparse
+import uuid
 from typing import List, Tuple, Dict, Union, Optional, Literal, Set
 
 
@@ -56,7 +57,10 @@ class Game:
     EMPTY = "8/8/8/8/8/8/8/8 w KQkq - 0 1"
     STANDARD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-    def __init__(self, state=STANDARD, players: Optional[Players] = None) -> None:
+    def __init__(
+        self, state=STANDARD, players: Optional[Players] = None, id: str = None
+    ) -> None:
+        self.id = id or uuid.uuid4().hex
         self.players: Players = players or [Human(), Computer()]
         self.history: List[str] = []
         self.status: Status = None
@@ -537,9 +541,19 @@ class Game:
         return wscore - bscore
 
     def lookahead(self, move):
-        g = Game(state=self.get_state())
+        g = Game(state=self.get_state(), id=None)
         g.make_move(move)
         return g
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "state": self.state,
+            "status": self.status,
+            "status_desc": self.status_desc,
+            "players": [p.__class__.__name__ for p in self.players],
+            "history": self.history,
+        }
 
     @property
     def cur_color(self) -> bool:

@@ -16,9 +16,12 @@
       flex-flow: column nowrap;
       align-items: center;
       justify-content: center;
-      h1, button {
+
+      h1,
+      button {
         margin: 0;
       }
+
       button {
         margin-top: 15px;
       }
@@ -47,29 +50,47 @@
   </main>
 
   <script>
+    const url = new URL(window.location.href);
+    let gameId = url.pathname.replace(/^\/game\//, '').replace(/\/$/, '') || null;
     let game;
+    let board;
 
     document.addEventListener('DOMContentLoaded', function () {
-      newGame();
+      if (!gameId) loadGame(gameId);
     });
-
-    async function makeMove(source, target) {
-      alert(`Move from ${source} to ${target}`);
-    }
 
     async function newGame() {
       const resp = await fetch('/api/games', { method: 'POST' });
-      game = await resp.json();
+      setGame(await resp.json());
+      window.history.pushState({}, '', `/game/${gameId}`);
+    }
+
+    async function loadGame() {
+      const resp = await fetch(`/api/games/${gameId}`);
+      setGame(await resp.json());
+    }
+
+    async function makeMove(source, target) {
+      const data = { move: `${source}${target}` };
+      const resp = await fetch(`/api/games/${gameId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      setGame(await resp.json());
+    }
+
+    function setGame(obj) {
       const config = {
-        pieceTheme: 'img/{piece}.png',
-        position: game.state,
+        pieceTheme: '/img/{piece}.png',
+        position: obj.state,
         draggable: true,
         onDrop: makeMove,
       };
-      const board = Chessboard('board', config);
+      game = obj;
+      gameId = obj.id;
+      board = Chessboard('board', config);
     }
-
-
   </script>
 
   <script src="https://code.jquery.com/jquery-3.5.1.min.js"

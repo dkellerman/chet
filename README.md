@@ -8,6 +8,7 @@
   - randomize with n pieces
   - illegal pos if it's your turn and no moves to make
   - game to/from dict
+    - add id to game
 
 - minimax player
   - lookahead tree
