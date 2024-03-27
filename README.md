@@ -1,21 +1,17 @@
 # Chess
 
--research-
-linux/mac perf utils
-vercel kv python
-chessboardjs options
-data urls
-chess llm post
-why O(b^d/2) for minimax
-lru cache impl
-extend pdb?
-python timeit
-flops
-ui layout
-mac clockspeed & general stats (flops etc)
-parallelization
-py typing checks
-
+## research
+- vercel kv python
+- chessboardjs options
+- data urls
+- chess llm post
+- lru cache impl
+- extend pdb
+- ui layout
+- parallel ideas
+- py typing checks
+- mac cpu stats & clock time
+- vercel perf stats
 
 
 ## TODO
@@ -25,6 +21,7 @@ py typing checks
   - insufficient material
   - randomize with n pieces
   - illegal pos if it's your turn and no moves to make
+  - pawn vectors
 
 - minimax player
   - lookahead tree

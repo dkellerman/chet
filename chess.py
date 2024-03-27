@@ -541,7 +541,7 @@ class Game:
         return wscore - bscore
 
     def lookahead(self, move):
-        g = Game(state=self.get_state(), id=None)
+        g = Game(state=self.get_state(), id='lookahead')
         g.make_move(move)
         return g
 
@@ -779,7 +779,7 @@ class Move:
 
 
 class Piece:
-    SCORES = dict(p=1, n=3, b=3, r=5, q=9, k=0)
+    SCORES = dict(p=10, n=30, b=35, r=50, q=90, k=0)
     VECTORS: dict["Piece", tuple[int, int]] = dict(
         n=[(1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1)],
         q=[(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)],
