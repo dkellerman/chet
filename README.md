@@ -2,14 +2,78 @@
 
 ## TODO
 - rules
-  - black not moving out of check?
-  - insufficient material
+  - must move out of check
   - enp pin
-  - check for ending right away
+  - insufficient material
+  - randomize with n pieces
+  - illegal pos if it's your turn and no moves to make
+  - game to/from dict
 
-- refactors
-  - lookahead
-  - player-based state
+- minimax player
+  - lookahead tree
+  - minimax impl
+  - alpha beta pruning
+  - position ct instead of depth
+  - tree ordering
+  - load/save player
+
+- profile: perf & mem/caching
+  - self-play loop w stats
+    - cli args
+    - total time
+    - num games
+    - w/l/d ratio
+    - games/sec
+    - moves/sec
+    - moves/game -> min, max, avg, var
+    - moves evaluated per position
+    - cache stats (hits, size)
+    - avg pos score w/b
+    - avg end score w/b
+    - avg legal moves per position
+    - wins vs self or random player
+    - savings from pruning
+    - avg number of attacked pieces/squares -> contact amount
+      - track over course of game
+  - define baseline metrics
+    - min/max/avg moves per game (archive vs random)
+    - moves calculated by avg minimax search (w pruning)
+    - how important is 50 move rule & 3-fold rep?
+    - memory per board state
+    - cache hit/miss perf
+    - num cache calls per move
+    - king capture differences
+    - time to get legal moves
+    - time to get attacks
+    - time for end state calculation
+    - time for material score calculation (tricks?)
+    - time for minimax
+    - number of moves evaluated
+    - extra time for pin/check eval
+    - extra time for lookahead by cloning game (vs undo move)
+    - big O for minimax -> b^(d/2) -> b=avg moves to check, d=depth
+    - what percentage of random positions are legal?
+      - for n pieces on the board, what is the total state space?
+  - define goals (g/s or m/s, memory, etc)
+  - archive test & timing
+  - profiler
+  - timeits
+  - flop calc
+  - mem reqs, adjust cache
+  - htop etc - research
+  - try:
+    - unmake move (or clone game instead of using fen)
+    - back to recursion
+    - king capture
+    - process pool
+    - pruning
+    - order moves by capture, etc
+    - bitboards
+    - cpython
+    - mojo
+    - convolution approaches?
+    - 1d array
+    - more tuples/frozen/sets etc
 
 - UI/server
   - layout & pieces
@@ -23,29 +87,6 @@
   - promotions
   - shuffle board
   - setup board?
-
-- minimax player
-  - lookahead tree
-  - minimax impl
-  - alpha beta pruning
-  - order by capture
-  - tree ordering
-  - load/save player
-
-- profile: perf & mem/caching
-  - self-play loop
-  - archive test
-  - cli args
-  - profiler
-  - timeits
-  - flop calc
-  - mem reqs, adjust cache
-  - htop etc
-  - try:
-    - typing
-    - mojo
-    - bitboards
-
 
 ## Algorithms
 - minimax w pruning
@@ -70,6 +111,9 @@
 
 ## maybe
 - offer draw
+- pgn parser
 - allow output of shortened notation
 - adorn notation (check, etc.)
 - requires promotion
+- game debugger (step, print, etc)
+- os github

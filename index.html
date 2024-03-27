@@ -3,26 +3,48 @@
 
 <head>
   <title>Chet</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
     integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
 
   <style>
     nav {
-      padding: 0 0 20px 0;
+      padding: 20px;
+      display: flex;
+      flex-flow: column nowrap;
+      align-items: center;
+      justify-content: center;
+      h1, button {
+        margin: 0;
+      }
+      button {
+        margin-top: 15px;
+      }
+    }
+
+    main {
+      padding: 20px;
     }
 
     #board {
       width: 400px;
+      margin: auto;
     }
   </style>
 </head>
 
 <body>
   <nav>
+    <h1>Chet</h1>
+    <em>Chess bot</em>
     <button onclick="newGame()">New Game</button>
   </nav>
 
-  <div id="board"></div>
+  <main>
+    <div id="board"></div>
+  </main>
 
   <script>
     let game;
