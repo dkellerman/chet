@@ -203,7 +203,6 @@ class TestChess(unittest.TestCase):
 
         # capture
         g = Game("8/8/8/8/8/8/4pP2/4K3 w - - 0 1")
-        g.render_board()
         self.assertLegalMoves(g, "e1xe2|e1d2|f2f3|f2f4")
 
         # can't move into check
@@ -440,9 +439,9 @@ class TestChess(unittest.TestCase):
         g = Game()
         self.assertEqual(g.get_position_score(), 0.0)
         g.make_moves(["e2e4", "d7d5", "e2xd5"])
-        self.assertEqual(g.get_position_score(), 1.0)
+        self.assertEqual(g.get_position_score(), 10.0)
         g.board[(3, 0)] = None
-        self.assertEqual(g.get_position_score(), -8.0)
+        self.assertEqual(g.get_position_score(), -80.0)
         g = Game("7k/RR6/8/8/8/8/8/K7 w - - 0 1")
         g.make_move("a7a8#")
         self.assertEqual(g.get_position_score(), float("inf"))

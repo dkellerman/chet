@@ -29,12 +29,12 @@ class Action(enum.Enum):
 
 # additional types
 Players = tuple["Player", "Player"]
-Promo = str  # Literal["q", "r", "b", "n", "Q", "R", "B", "N"]
+Promo = str
 Coords = tuple[int, int]  # col, row
 BoardType = dict[Coords, Optional["Piece"]]
 Square = str  # a1
-PieceType = str  # Literal["p", "n", "b", "r", "q", "k", "P", "N", "B", "R", "Q", "K"]
-Castle = str  # Literal["K", "Q", "k", "q"]
+PieceType = str
+Castle = str
 Pin = tuple[Coords, Coords]  # square, axis
 PieceVectors = list[tuple[int, int]]
 
@@ -44,7 +44,7 @@ def cache_by_game_state(func: Callable):
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        state = self.get_state()
+        state = self.state or self.get_state()
         key = (state, args, frozenset(kwargs.items()))
 
         @cache
@@ -252,14 +252,15 @@ class Game:
                         _append_with_promos(push2)
                 if (
                     from_col > 0
-                    and getattr(self.board.get(cap1), "color", None) != piece.color
+                    and self.board.get(cap1)
+                    and self.board.get(cap1) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != 1))
                 ):
                     _append_with_promos(cap1)
                 if (
                     from_col < 7
                     and self.board.get(cap2)
-                    and getattr(self.board.get(cap2), "color", None) != piece.color
+                    and self.board.get(cap2) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != -1))
                 ):
                     _append_with_promos(cap2)
@@ -328,7 +329,7 @@ class Game:
         return moves
 
     @cache_by_game_state
-    def get_attacks(self) -> tuple[set[Coords], Optional[Pin]]:
+    def get_attacks(self) -> tuple[list[Coords], Optional[Pin]]:
         attacks: set[Coords] = set()
         pin: Optional[Pin] = None
         color = not self.cur_color
@@ -375,7 +376,7 @@ class Game:
                     if 0 <= col < 8 and 0 <= row < 8:
                         attacks.add((col, row))
 
-        return attacks, pin
+        return list(attacks), pin
 
     def get_attacks_by_vectors(
         self, from_square: Coords, vectors: PieceVectors
@@ -507,7 +508,7 @@ class Game:
         return state_str
 
     def render_board(self, color: Optional[bool] = None, clear: bool = False) -> None:
-        color = color if color is not None else self.cur_color
+        color = color if color is not None else WHITE
         if clear:
             os.system("clear")
         range_dir = range(7, -1, -1) if color == WHITE else range(8)
@@ -723,7 +724,7 @@ class Board:
 
 class Move:
     NOTATION_RE = re.compile(
-        r"^([NBRQKP])?([a-h])?([1-8])?(x)?([a-h])([1-8])(=?[nrbqNRBQ])?"
+        r"^([NBRQKP])?([a-h])?([1-8])?([x-])?([a-h])([1-8])(=?[nrbqNRBQ])?"
         r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
     )
 
