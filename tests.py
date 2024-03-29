@@ -203,6 +203,7 @@ class TestChess(unittest.TestCase):
 
         # capture
         g = Game("8/8/8/8/8/8/4pP2/4K3 w - - 0 1")
+        g.render_board()
         self.assertLegalMoves(g, "e1xe2|e1d2|f2f3|f2f4")
 
         # can't move into check
@@ -263,7 +264,6 @@ class TestChess(unittest.TestCase):
     def test_rook_moves(self):
         # basic
         g = Game("8/4p3/8/4R3/8/4P3/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
         self.assertLegalMoves(
             g, "e5d5|e5c5|e5b5|e5a5|e5f5|e5g5|e5h5|e5e4|e5e6|e5xe7|e3e4"
         )
@@ -406,7 +406,7 @@ class TestChess(unittest.TestCase):
 
     def test_allow_king_capture(self):
         g = Game("rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1")
-        g._allow_king_capture = True
+        g.allow_king_capture = True
         self.assertTrue(g.is_legal_move("e1d2"))
         g.make_move("e1d2")
         self.assertTrue(g.is_legal_move("d8xd2"))
@@ -438,11 +438,11 @@ class TestChess(unittest.TestCase):
 
     def test_position_score(self):
         g = Game()
-        self.assertEqual(g.get_position_score(), 0)
+        self.assertEqual(g.get_position_score(), 0.0)
         g.make_moves(["e2e4", "d7d5", "e2xd5"])
-        self.assertEqual(g.get_position_score(), 1)
+        self.assertEqual(g.get_position_score(), 1.0)
         g.board[(3, 0)] = None
-        self.assertEqual(g.get_position_score(), -8)
+        self.assertEqual(g.get_position_score(), -8.0)
         g = Game("7k/RR6/8/8/8/8/8/K7 w - - 0 1")
         g.make_move("a7a8#")
         self.assertEqual(g.get_position_score(), float("inf"))
