@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>Chet</title>
+  <title>Chet! The Chess Bot</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
@@ -66,7 +66,7 @@
     });
 
     async function loadGame() {
-      const g = localStorage.getItem('chet.game');
+      const g = sessionStorage.getItem('chet.game');
       if (g) {
         const game = JSON.parse(g);
         setGame(game);
@@ -106,7 +106,7 @@
       console.log("new game state", newGame);
       if (compMove) board.move(compMove);
       game = newGame;
-      localStorage.setItem('chet.game', JSON.stringify(newGame));
+      sessionStorage.setItem('chet.game', JSON.stringify(newGame));
       if (["e1g1", "e1c1", "e8g8", "e8c8"].includes(move) ||
         ["e1g1", "e1c1", "e8g8", "e8c8"].includes(compMove)) loadGame();
       if (newGame.status_desc) {
@@ -125,7 +125,7 @@
       };
       game = obj;
       board = Chessboard('board', config);
-      localStorage.setItem('chet.game', JSON.stringify(game));
+      sessionStorage.setItem('chet.game', JSON.stringify(game));
     }
   </script>
 

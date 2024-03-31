@@ -297,14 +297,14 @@ class Game:
                 if (
                     from_col > 0
                     and self.board.get(cap1)
-                    and self.board.get(cap1) != piece.color
+                    and getattr(self.board.get(cap1), 'color', None) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != 1))
                 ):
                     _append_with_promos(cap1)
                 if (
                     from_col < 7
                     and self.board.get(cap2)
-                    and self.board.get(cap2) != piece.color
+                    and getattr(self.board.get(cap2), 'color', None) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != -1))
                 ):
                     _append_with_promos(cap2)
