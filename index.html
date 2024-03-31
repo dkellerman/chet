@@ -96,13 +96,19 @@
         body: JSON.stringify(data),
       });
       const newGame = await resp.json();
-      const compMove =  newGame.last_move.includes('x') ?
+      const compMove = newGame.last_move && newGame.last_move.includes('x') ?
         newGame.last_move.replace('x', '-') :
         newGame.last_move.slice(0, 2) + '-' + newGame.last_move.slice(2);
-      console.log("compMove", compMove);
-      board.move(compMove);
+      console.log("comp move", compMove);
+      console.log("new game state", newGame);
+      if (compMove) board.move(compMove);
       game = newGame;
       localStorage.setItem('chet.game', JSON.stringify(newGame));
+      if (["e1g1", "e1c1", "e8g8", "e8c8"].includes(move) ||
+        ["e1g1", "e1c1", "e8g8", "e8c8"].includes(compMove)) loadGame();
+      if (newGame.status_desc) {
+        alert(newGame.status_desc);
+      }
     }
 
     function setGame(obj) {
