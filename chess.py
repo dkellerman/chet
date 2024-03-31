@@ -662,7 +662,7 @@ class Game:
             "players": [p.__class__.__qualname__ for p in self.players],
             "history": self.history,
             "legal_moves": [m.to_notation(self) for m in self.get_legal_moves()],
-            "last_move": self.last_move.to_notation(self) if self.last_move else None,
+            "last_move": self.last_move if self.last_move else None,
         }
 
     @property

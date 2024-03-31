@@ -10,6 +10,10 @@
     integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
 
   <style>
+    body {
+      overflow: hidden;
+    }
+
     nav {
       padding: 20px;
       display: flex;
@@ -51,34 +55,54 @@
 
   <script>
     const url = new URL(window.location.href);
-    let gameId = url.searchParams.get('game');
     let game;
     let board;
 
     document.addEventListener('DOMContentLoaded', function () {
-      if (gameId) loadGame(gameId);
-      else setGame({});
+      loadGame();
     });
+
+    async function loadGame() {
+      const g = localStorage.getItem('chet.game');
+      if (g) {
+        const game = JSON.parse(g);
+        setGame(game);
+      } else {
+        newGame();
+      }
+    }
 
     async function newGame() {
       const resp = await fetch('/api/games', { method: 'POST' });
       setGame(await resp.json());
-      window.history.pushState({}, '', `/?game=${gameId}`);
     }
 
-    async function loadGame() {
-      const resp = await fetch(`/api/games/${gameId}`);
-      setGame(await resp.json());
+    function onDrop(source, target) {
+      const move = `${source}${target}`;
+      if (!game.legal_moves.includes(move) &&
+        !game.legal_moves.includes(`${source}x${target}`)) return 'snapback';
+      makeMove(move);
     }
 
-    async function makeMove(source, target) {
-      const data = { move: `${source}${target}` };
-      const resp = await fetch(`/api/games/${gameId}`, {
+    async function makeMove(move) {
+      const data = {
+        id: game.id,
+        fen: game.fen,
+        move,
+      };
+      const resp = await fetch(`/api/games/${game.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      setGame(await resp.json());
+      const newGame = await resp.json();
+      const compMove =  newGame.last_move.includes('x') ?
+        newGame.last_move.replace('x', '-') :
+        newGame.last_move.slice(0, 2) + '-' + newGame.last_move.slice(2);
+      console.log("compMove", compMove);
+      board.move(compMove);
+      game = newGame;
+      localStorage.setItem('chet.game', JSON.stringify(newGame));
     }
 
     function setGame(obj) {
@@ -88,11 +112,11 @@
         },
         position: obj.fen,
         draggable: true,
-        onDrop: makeMove,
+        onDrop,
       };
       game = obj;
-      gameId = obj.id;
       board = Chessboard('board', config);
+      localStorage.setItem('chet.game', JSON.stringify(game));
     }
   </script>
 
