@@ -51,7 +51,7 @@
 
   <script>
     const url = new URL(window.location.href);
-    let gameId = url.pathname.replace(/^\/game\//, '').replace(/\/$/, '') || null;
+    let gameId = url.searchParams.get('game');
     let game;
     let board;
 
@@ -63,7 +63,7 @@
     async function newGame() {
       const resp = await fetch('/api/games', { method: 'POST' });
       setGame(await resp.json());
-      window.history.pushState({}, '', `/game/${gameId}`);
+      window.history.pushState({}, '', `/?game=${gameId}`);
     }
 
     async function loadGame() {
@@ -86,7 +86,7 @@
         pieceTheme: (piece) => {
           return PIECE_URLS[piece] ?? `/img/${piece}.png`;
         },
-        position: obj.state,
+        position: obj.fen,
         draggable: true,
         onDrop: makeMove,
       };

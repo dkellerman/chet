@@ -5,10 +5,10 @@ from chess import *
 
 
 class TestChess(unittest.TestCase):
-    def test_state(self):
+    def test_fen(self):
         st1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         g = Game(st1)
-        st2 = g.state
+        st2 = g.fen
         self.assertEqual(
             st2, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         )
@@ -142,7 +142,7 @@ class TestChess(unittest.TestCase):
         g = Game()
         g.make_move("e2e4")
         self.assertEqual(
-            g.state,
+            g.fen,
             "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e4 0 1",
         )
         self.assertEqual(g.cur_color, BLACK)

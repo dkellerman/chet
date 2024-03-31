@@ -41,13 +41,13 @@ Check = tuple[Coords, Coords]  # square of attacking piece, axis
 PieceVectors = list[tuple[int, int]]
 
 
-def cache_by_game_state(func: Callable):
+def cache_by_fen(func: Callable):
     cache = functools.lru_cache(maxsize=10000)
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        state = self.state or self.get_state()
-        key = (state, args, frozenset(kwargs.items()))
+        fen = self.fen or self.get_fen()
+        key = (fen, args, frozenset(kwargs.items()))
 
         @cache
         def cached_func(key):
@@ -76,7 +76,7 @@ class Game:
 
     def __init__(
         self,
-        state=STANDARD,
+        fen=STANDARD,
         players: Optional[Players] = None,
         id: Optional[str] = None,
         rnd_pieces: Optional[int] = None,
@@ -88,10 +88,10 @@ class Game:
         self.status_desc = None
         self.allow_king_capture = False
         if rnd_pieces:
-            self.set_state(self.EMPTY)
+            self.set_fen(self.EMPTY)
             self.randomize_board(rnd_pieces)
         else:
-            self.set_state(state)
+            self.set_fen(fen)
 
     def play(self) -> None:
         if not self.players or len(self.players) != 2:
@@ -166,7 +166,7 @@ class Game:
         # flip turn
         self.history.append(notation)
         self.turn = 1 - self.turn
-        self.state = self.get_state()
+        self.fen = self.get_fen()
 
         # 50-move rule update
         self.draw_counter += 1
@@ -174,17 +174,17 @@ class Game:
             self.draw_counter = 0
 
         # 3-fold repetition update
-        board_state = self.state.split()[0]
-        self.repititions[board_state] = self.repititions.get(board_state, 0) + 1
+        fen = self.fen.split()[0]
+        self.repititions[fen] = self.repititions.get(fen, 0) + 1
         self.check_game_over()
 
     def check_game_over(self) -> bool:
-        board_state = self.state.split()[0]
+        fen = self.fen.split()[0]
 
-        if self.allow_king_capture and "k" not in board_state:
+        if self.allow_king_capture and "k" not in fen:
             self.status = Status.WWINS
             self.status_desc = "King captured"
-        elif self.allow_king_capture and "K" not in board_state:
+        elif self.allow_king_capture and "K" not in fen:
             self.status = Status.BWINS
             self.status_desc = "King captured"
         elif self.is_checkmate():
@@ -196,7 +196,7 @@ class Game:
         elif self.draw_counter >= 50:
             self.status = Status.DRAW
             self.status_desc = "Fifty-move rule"
-        elif self.repititions[board_state] >= 3:
+        elif self.repititions[fen] >= 3:
             self.status = Status.DRAW
             self.status_desc = "Threefold repetition"
 
@@ -213,7 +213,7 @@ class Game:
 
         return self.is_ended
 
-    @cache_by_game_state
+    @cache_by_fen
     def get_legal_moves(self) -> list["Move"]:
         # first get opponent attacks and pins
         attacks, pin = self.get_attacks()
@@ -382,7 +382,7 @@ class Game:
 
         return moves
 
-    @cache_by_game_state
+    @cache_by_fen
     def get_attacks(self) -> tuple[list[Attack], Optional[Pin]]:
         attacks: list[Attack] = []
         pin: Optional[Pin] = None
@@ -511,7 +511,7 @@ class Game:
     def is_check(self) -> bool:
         return len(self.get_checks()) > 0
 
-    @cache_by_game_state
+    @cache_by_fen
     def get_checks(self) -> list[Check]:
         attacks, _ = self.get_attacks()
         checks: list[Check] = []
@@ -537,9 +537,9 @@ class Game:
     def is_stalemate(self) -> bool:
         return not self.is_check() and not len(self.get_legal_moves())
 
-    def set_state(self, state_str: str) -> None:
+    def set_fen(self, fen_str: str) -> None:
         board_str, turn, castles, enpassant, draw_counter, full_move_counter = (
-            state_str.split() + [""] * 5
+            fen_str.split() + [""] * 5
         )[:6]
         if turn:
             self.turn: int = 0 if turn == "w" else 1
@@ -558,22 +558,22 @@ class Game:
             self.history: list[str] = [""] * ((int(full_move_counter) - 1) * 2)
 
         self.board: Board = Board.from_fen(board_str)
-        self.state = state_str
+        self.fen = fen_str
         self.repititions: dict[str, int] = {board_str: 1}
         self.check_game_over()
 
     def set_board(self, fen: str) -> None:
-        self.set_state(f"{fen} {' '.join(self.state.split()[1:])}")
+        self.set_fen(f"{fen} {' '.join(self.fen.split()[1:])}")
 
-    def get_state(self) -> str:
+    def get_fen(self) -> str:
         board_str = self.board.to_fen()
-        state_str = (
+        fen_str = (
             f"{board_str} {'w' if self.cur_color == WHITE else 'b'}"
             f" {''.join(self.castles) if self.castles else '-'}"
             f" {c2sq(self.enpassant) if self.enpassant else '-'}"
             f" {self.draw_counter} {(len(self.history) // 2) or 1}"
         )
-        return state_str
+        return fen_str
 
     def render_board(self, color: Optional[bool] = None, clear: bool = False) -> None:
         color = color if color is not None else WHITE
@@ -588,7 +588,7 @@ class Game:
                 print(piece, end=" ")
             print()
 
-    @cache_by_game_state
+    @cache_by_fen
     def is_legal_state(self) -> bool:
         # 2 kings
         if len([p for p in self.board.values() if p and p.type == "k"]) != 2:
@@ -602,7 +602,7 @@ class Game:
                 return False
         # player can't be in check if not their turn
         if not self.allow_king_capture:
-            g = Game(state=self.get_state())
+            g = Game(fen=self.get_fen())
             g.turn = 1 - self.turn
             if g.is_check():
                 return False
@@ -629,7 +629,7 @@ class Game:
                 self.set_board(fen)
                 break
 
-    @cache_by_game_state
+    @cache_by_fen
     def get_position_score(self) -> float:
         if self.status == Status.WWINS:
             return float("inf")
@@ -649,18 +649,20 @@ class Game:
         return wscore - bscore
 
     def lookahead(self, move):
-        g = Game(state=self.get_state(), id="lookahead")
+        g = Game(fen=self.get_fen(), id="lookahead")
         g.make_move(move)
         return g
 
     def to_dict(self):
         return {
             "id": self.id,
-            "state": self.state,
-            "status": self.status,
+            "fen": self.fen,
+            "status": self.status.value if self.status else None,
             "status_desc": self.status_desc,
-            "players": [p.__class__.__name__ for p in self.players],
+            "players": [p.__class__.__qualname__ for p in self.players],
             "history": self.history,
+            "legal_moves": [m.to_notation(self) for m in self.get_legal_moves()],
+            "last_move": self.last_move.to_notation(self) if self.last_move else None,
         }
 
     @property

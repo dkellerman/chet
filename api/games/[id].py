@@ -1,14 +1,31 @@
+import urllib.parse
+import http.client
 import json
+import os
 from chess import Game, Computer
 from http.server import BaseHTTPRequestHandler
+
+
+def load_game(id):
+    conn = http.client.HTTPSConnection(os.environ["KV_REST_API_URL"].replace("https://", ""))
+    headers = {
+        "Authorization": "Bearer " + os.environ["KV_REST_API_TOKEN"],
+        "Content-Type": "application/json",
+    }
+    id = urllib.parse.quote(id, safe='')
+    conn.request("GET", f"/get/{id}", headers=headers)
+    res = conn.getresponse()
+    data = json.loads(res.read().decode("utf-8"))
+    print("***", data)
+    return Game(id=id, fen=data["fen"])
 
 
 def with_game(func):
     def wrapper(self, *args, **kwargs):
         game_id = self.path.split("/")[-1]
+
         if game_id:
-            games = {}
-            game = games.get(game_id)
+            game = load_game(game_id)
             return func(self, game, *args, **kwargs)
         else:
             return None
