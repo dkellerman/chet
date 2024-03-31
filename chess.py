@@ -79,6 +79,7 @@ class Game:
         state=STANDARD,
         players: Optional[Players] = None,
         id: Optional[str] = None,
+        rnd_pieces: Optional[int] = None,
     ) -> None:
         self.id = id or uuid.uuid4().hex
         self.players = players or (Human(), Computer())
@@ -86,7 +87,11 @@ class Game:
         self.status = None
         self.status_desc = None
         self.allow_king_capture = False
-        self.set_state(state)
+        if rnd_pieces:
+            self.set_state(self.EMPTY)
+            self.randomize_board(rnd_pieces)
+        else:
+            self.set_state(state)
 
     def play(self) -> None:
         if not self.players or len(self.players) != 2:
@@ -194,6 +199,18 @@ class Game:
         elif self.repititions[board_state] >= 3:
             self.status = Status.DRAW
             self.status_desc = "Threefold repetition"
+
+        # insufficient material
+        material = "".join(sorted([str(p) for p in self.board.values() if p]))
+        if material in ["Kk", "KNk", "Kkn", "BKk", "Kbk"]:
+            self.status = Status.DRAW
+            self.status_desc = "Insufficient material"
+        if material == "BKbk":
+            bishops = [sq for sq, p in self.board.items() if p and p.type == "b"]
+            if sq_color(bishops[0]) == sq_color(bishops[1]):
+                self.status = Status.DRAW
+                self.status_desc = "Insufficient material"
+
         return self.is_ended
 
     @cache_by_game_state
@@ -205,13 +222,19 @@ class Game:
         checks = self.get_checks()
         is_check = len(checks) > 0
         double_check = len(checks) > 1
-        check_from, check_axis = checks[0] if is_check else None
+        if is_check:
+            check_from, check_axis = checks[0]
+        else:
+            check_from, check_axis = None, None
 
         # get legal moves for current player
         moves: list[Move] = []
         for from_square, piece in self.board.items():
             if piece is None or piece.color != self.cur_color:
                 continue
+            if double_check and not self.allow_king_capture and piece.type != "k":
+                continue
+
             from_col, from_row = from_square
 
             # check if piece is pinned (ignore if allowed to capture king)
@@ -244,9 +267,6 @@ class Game:
                             or (to_square not in attacked_squares)
                         ):
                             moves.append(Move(from_square, (col, row)))
-
-            if double_check and not self.allow_king_capture:  # only king can move
-                return moves
 
             if piece.type == "p":
                 row_dir = 1 if piece.color == WHITE else -1
@@ -316,11 +336,26 @@ class Game:
 
         # filter out moves that don't resolve check
         if is_check and not self.allow_king_capture:
-            moves = [m for m in moves if m.to == check_from or (
+            intercepts: list[Coords] = []
+            if getattr(self.board[check_from], "type", "") in ["r", "q", "b"]:
+                sq = check_from
+                while True:
+                    sq = sq[0] + check_axis[0], sq[1] + check_axis[1]
+                    if getattr(self.board[sq], "type", None) == "k":
+                        break
+                    intercepts.append(sq)
 
-            )]
+            moves = [
+                m
+                for m in moves
+                if (
+                    getattr(self.board[m.from_], "type", None) == "k"
+                    or m.to == check_from
+                    or m.to in intercepts
+                )
+            ]
 
-        # add castles
+        # add castles unless check (even with king capture)
         if not is_check:
             row = 0 if self.cur_color else 7
             kside: Castle = "K" if self.cur_color else "k"
@@ -573,22 +608,24 @@ class Game:
                 return False
         return True
 
-    def randomize_board(self) -> None:
+    def randomize_board(self, max_pieces: Optional[int]=None) -> None:
         while True:
             pieces: list[PieceType] = ["p", "n", "b", "r", "q", "P", "N", "B", "R", "Q"]
             board1d: list[Optional[Piece]] = [None] * 64
             king_positions = random.sample(range(64), 2)
             board1d[king_positions[0]] = Piece("K")
             board1d[king_positions[1]] = Piece("k")
+            max_ct = max_pieces or 64
             for i in range(64):
-                if board1d[i] is None and random.random() < 0.5:
+                if max_ct > 0 and board1d[i] is None and random.random() < 0.5:
                     board1d[i] = Piece(random.choice(pieces))
+                    max_ct -= 1
 
             board: Board = Board({(i % 8, 7 - i // 8): board1d[i] for i in range(64)})
             fen = board.to_fen()
             g = Game()
             g.set_board(fen)
-            if g.is_legal_state():
+            if g.is_legal_state() and not g.check_game_over():
                 self.set_board(fen)
                 break
 
@@ -696,7 +733,9 @@ class Board:
     def __init__(self, board: Optional[BoardType] = None):
         self.board: BoardType = board or collections.defaultdict(lambda: None)
 
-    def __getitem__(self, coords: Coords) -> Optional["Piece"]:
+    def __getitem__(self, coords: Optional[Coords]) -> Optional["Piece"]:
+        if not coords:
+            return None
         return self.board.get(coords)
 
     def __setitem__(
@@ -911,6 +950,10 @@ def sq2c(sq: Square) -> Coords:
 def c2sq(coords: Coords) -> Square:
     """(0, 0) -> a1"""
     return chr(ord("a") + coords[0]) + str(coords[1] + 1)
+
+
+def sq_color(c: Coords):
+    return WHITE if (c[0] + c[1]) % 2 else BLACK
 
 
 if __name__ == "__main__":

@@ -325,7 +325,24 @@ class TestChess(unittest.TestCase):
         g = Game("K8/Q7/8/8/8/8/r7/8 w - - 0 1")
         self.assertLegalMoves(g, "a8b8|a8b7|a7a6|a7a5|a7a4|a7a3|a7xa2")
 
-    def test_check(self):
+    def test_in_check_legal_moves(self):
+        # double check must move king out of check
+        g = Game("N7/8/8/8/8/2nr4/7P/QRNK2R1 w - - 0 1")
+        self.assertLegalMoves(g, "d1c2|d1e1")
+        # capture attacking piece
+        g = Game("N7/8/8/8/8/3r4/7P/QRNK2R1 w - - 0 1")
+        self.assertLegalMoves(g, "d1c2|d1e1|d1e2|c1xd3")
+        # can't castle
+        g = Game("4r3/8/8/8/8/8/8/R3K2R w - - 0 1")
+        self.assertLegalMoves(g, "e1d1|e1f1|e1d2|e1f2")
+        # intercept check
+        g = Game("7R/8/4r3/8/8/8/Q6R/R2BK1NR w - - 0 1")
+        self.assertLegalMoves(g, "e1f1|e1d2|e1f2|g1e2|a2e2|h2e2|d1e2|a2xe6")
+        # intercept check diagonally
+        g = Game("q5B1/4N3/8/7Q/3PK3/8/8/3R1R1Q w - - 0 1")
+        self.assertLegalMoves(g, "h5d5|e7d5|e7c6|d4d5|g8d5|e4e3|e4e5|e4f5|e4f4|e4f3|e4d3")
+
+    def test_is_check(self):
         g = Game()
         self.assertFalse(g.is_check())
         g.turn = 1
@@ -374,6 +391,29 @@ class TestChess(unittest.TestCase):
         self.assertFalse(g.is_stalemate())  # not black's turn yet
         g.turn = 1
         self.assertTrue(g.is_stalemate())
+
+    def test_insufficient_material(self):
+        # k v k
+        g = Game("7k/8/8/8/8/8/8/K7 w - - 0 1")
+        self.assertTrue(g.is_ended)
+        self.assertEqual(g.status, Status.DRAW)
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        # k/b v k
+        g = Game("7k/8/8/8/8/8/8/KB6 w - - 0 1")
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        g = Game("6bk/8/8/8/8/8/8/K7 w - - 0 1")
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        # k/n v k
+        g = Game("7k/8/8/8/8/8/8/KN6 w - - 0 1")
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        g = Game("6nk/8/8/8/8/8/8/K7 w - - 0 1")
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        # k/b v k/b - same color
+        g = Game("6kb/8/8/8/8/8/8/BK6 w - - 0 1")
+        self.assertEqual(g.status_desc, 'Insufficient material')
+        # k/b v k/b - opp color
+        g = Game("6k1/7b/8/8/8/8/8/BK6 w - - 0 1")
+        self.assertNotEqual(g.status_desc, 'Insufficient material')
 
     def test_resign(self):
         g = Game()
