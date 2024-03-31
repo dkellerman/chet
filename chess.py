@@ -290,6 +290,7 @@ class Game:
                         from_square[1] == row_start
                         and push2[1] <= 7
                         and push2[1] >= 0
+                        and not self.board.get(push1)
                         and not self.board.get(push2)
                     ):
                         _append_with_promos(push2)
