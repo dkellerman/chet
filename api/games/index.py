@@ -1,6 +1,4 @@
 import json, os
-import http.client
-import urllib.parse
 from http.server import BaseHTTPRequestHandler
 from chess import Game, Status
 
