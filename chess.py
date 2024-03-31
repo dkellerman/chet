@@ -10,7 +10,7 @@ import enum
 import argparse
 import uuid
 import abc
-from typing import Union, Optional, Literal, Callable
+from typing import Union, Optional, Callable
 
 
 WHITE, BLACK = True, False
@@ -35,7 +35,9 @@ BoardType = dict[Coords, Optional["Piece"]]
 Square = str  # a1
 PieceType = str
 Castle = str
-Pin = tuple[Coords, Coords]  # square, axis
+Pin = tuple[Coords, Coords]  # square of pinned piece, axis
+Attack = tuple[Coords, Coords]  # square of attacking piece, square of attacked piece
+Check = tuple[Coords, Coords]  # square of attacking piece, axis
 PieceVectors = list[tuple[int, int]]
 
 
@@ -198,6 +200,12 @@ class Game:
     def get_legal_moves(self) -> list["Move"]:
         # first get opponent attacks and pins
         attacks, pin = self.get_attacks()
+        attacked_squares = [a[1] for a in attacks]
+
+        checks = self.get_checks()
+        is_check = len(checks) > 0
+        double_check = len(checks) > 1
+        check_from, check_axis = checks[0] if is_check else None
 
         # get legal moves for current player
         moves: list[Move] = []
@@ -224,6 +232,21 @@ class Game:
                     vectors = list(
                         set(vectors) & set([pin_axis, (-pin_axis[0], -pin_axis[1])])
                     )
+
+            if piece.type == "k":
+                for col_dir, row_dir in vectors:
+                    col, row = from_col + col_dir, from_row + row_dir
+                    if 0 <= col < 8 and 0 <= row < 8:
+                        to_square = (col, row)
+                        to_piece = self.board.get(to_square)
+                        if (not to_piece or to_piece.color != piece.color) and (
+                            self.allow_king_capture
+                            or (to_square not in attacked_squares)
+                        ):
+                            moves.append(Move(from_square, (col, row)))
+
+            if double_check and not self.allow_king_capture:  # only king can move
+                return moves
 
             if piece.type == "p":
                 row_dir = 1 if piece.color == WHITE else -1
@@ -291,46 +314,42 @@ class Game:
                         if not to_piece or to_piece.color != piece.color:
                             moves.append(Move(from_square, (col, row)))
 
-            elif piece.type == "k":
-                for col_dir, row_dir in vectors:
-                    col, row = from_col + col_dir, from_row + row_dir
-                    if 0 <= col < 8 and 0 <= row < 8:
-                        to_square = (col, row)
-                        to_piece = self.board.get(to_square)
-                        if (not to_piece or to_piece.color != piece.color) and (
-                            self.allow_king_capture or (to_square not in attacks)
-                        ):
-                            moves.append(Move(from_square, (col, row)))
+        # filter out moves that don't resolve check
+        if is_check and not self.allow_king_capture:
+            moves = [m for m in moves if m.to == check_from or (
+
+            )]
 
         # add castles
-        row = 0 if self.cur_color else 7
-        kside: Castle = "K" if self.cur_color else "k"
-        if (
-            (kside in self.castles)
-            and (not self.board.get((5, row)))
-            and (not self.board.get((6, row)))
-            and (self.allow_king_capture or (not (5, row) in attacks))
-            and (self.allow_king_capture or (not (6, row) in attacks))
-        ):
-            moves.append(Move((4, row), (6, row), castle=kside))
+        if not is_check:
+            row = 0 if self.cur_color else 7
+            kside: Castle = "K" if self.cur_color else "k"
+            if (
+                (kside in self.castles)
+                and (not self.board.get((5, row)))
+                and (not self.board.get((6, row)))
+                and (self.allow_king_capture or (not (5, row) in attacked_squares))
+                and (self.allow_king_capture or (not (6, row) in attacked_squares))
+            ):
+                moves.append(Move((4, row), (6, row), castle=kside))
 
-        qside: Castle = "Q" if self.cur_color else "q"
-        if (
-            (qside in self.castles)
-            and (not self.board.get((1, row)))
-            and (not self.board.get((2, row)))
-            and (not self.board.get((3, row)))
-            and (self.allow_king_capture or (not (1, row) in attacks))
-            and (self.allow_king_capture or (not (2, row) in attacks))
-            and (self.allow_king_capture or (not (3, row) in attacks))
-        ):
-            moves.append(Move((4, row), (2, row), castle=qside))
+            qside: Castle = "Q" if self.cur_color else "q"
+            if (
+                (qside in self.castles)
+                and (not self.board.get((1, row)))
+                and (not self.board.get((2, row)))
+                and (not self.board.get((3, row)))
+                and (self.allow_king_capture or (not (1, row) in attacked_squares))
+                and (self.allow_king_capture or (not (2, row) in attacked_squares))
+                and (self.allow_king_capture or (not (3, row) in attacked_squares))
+            ):
+                moves.append(Move((4, row), (2, row), castle=qside))
 
         return moves
 
     @cache_by_game_state
-    def get_attacks(self) -> tuple[list[Coords], Optional[Pin]]:
-        attacks: set[Coords] = set()
+    def get_attacks(self) -> tuple[list[Attack], Optional[Pin]]:
+        attacks: list[Attack] = []
         pin: Optional[Pin] = None
         color = not self.cur_color
 
@@ -344,44 +363,44 @@ class Game:
                 row_dir = 1 if color == WHITE else -1
                 if from_col > 0:
                     cap1 = (from_col - 1, from_row + row_dir)
-                    attacks.add(cap1)
+                    attacks.append((from_square, cap1))
                 if from_col < 7:
                     cap2 = (from_col + 1, from_row + row_dir)
-                    attacks.add(cap2)
+                    attacks.append((from_square, cap2))
 
             elif piece.type == "r":
                 r_attacks, r_pin = self.get_attacks_by_vectors(from_square, vectors)
-                attacks.update(r_attacks)
+                attacks.extend(r_attacks)
                 pin = pin or r_pin
 
             elif piece.type == "q":
                 q_attacks, q_pin = self.get_attacks_by_vectors(from_square, vectors)
-                attacks.update(q_attacks)
+                attacks.extend(q_attacks)
                 pin = pin or q_pin
 
             elif piece.type == "b":
                 b_attacks, b_pin = self.get_attacks_by_vectors(from_square, vectors)
-                attacks.update(b_attacks)
+                attacks.extend(b_attacks)
                 pin = pin or b_pin
 
             elif piece.type == "n":
                 for dcol, drow in vectors:
                     col, row = from_col + dcol, from_row + drow
                     if 0 <= col < 8 and 0 <= row < 8:
-                        attacks.add((col, row))
+                        attacks.append((from_square, (col, row)))
 
             elif piece.type == "k":
                 for dcol, drow in vectors:
                     col, row = from_col + dcol, from_row + drow
                     if 0 <= col < 8 and 0 <= row < 8:
-                        attacks.add((col, row))
+                        attacks.append((from_square, (col, row)))
 
-        return list(attacks), pin
+        return attacks, pin
 
     def get_attacks_by_vectors(
         self, from_square: Coords, vectors: PieceVectors
-    ) -> tuple[list[Coords], Optional[Pin]]:
-        attacks: list[Coords] = []
+    ) -> tuple[list[Attack], Optional[Pin]]:
+        attacks: list[Attack] = []
         pin: Optional[Pin] = None
         piece = self.board.get(from_square)
         if not piece:
@@ -401,7 +420,7 @@ class Game:
                     break
 
                 if not looking_for_pin:
-                    attacks.append(to_square)
+                    attacks.append((from_square, to_square))
                 attacked_piece = self.board.get(to_square)
                 if attacked_piece is None:
                     continue
@@ -454,14 +473,28 @@ class Game:
             return True
         return move in self.get_legal_moves()
 
-    @cache_by_game_state
     def is_check(self) -> bool:
+        return len(self.get_checks()) > 0
+
+    @cache_by_game_state
+    def get_checks(self) -> list[Check]:
         attacks, _ = self.get_attacks()
-        for sq in attacks:
-            piece = self.board.get(sq)
-            if piece and piece.type == "k" and piece.color == self.cur_color:
-                return True
-        return False
+        checks: list[Check] = []
+        for from_square, attacked_square in attacks:
+            attacked_piece = self.board.get(attacked_square)
+            if (
+                attacked_piece
+                and attacked_piece.type == "k"
+                and attacked_piece.color == self.cur_color
+            ):
+                a0 = attacked_square[0] - from_square[0]
+                a1 = attacked_square[1] - from_square[1]
+                axis = (
+                    -1 if a0 < 0 else (1 if a0 > 0 else 0),
+                    -1 if a1 < 0 else (1 if a1 > 0 else 0),
+                )
+                checks.append((from_square, axis))
+        return checks
 
     def is_checkmate(self) -> bool:
         return self.is_check() and not len(self.get_legal_moves())
@@ -608,6 +641,10 @@ class Game:
     @property
     def is_ended(self) -> bool:
         return self.status not in (None, Status.PLAYING)
+
+    @property
+    def status_str(self):
+        return f"{self.status.value if self.status else '-'}: {self.status_desc}!"
 
 
 class Player(abc.ABC):
@@ -885,12 +922,19 @@ if __name__ == "__main__":
 
     # self-play
     if options.play > 0:
-        from tqdm import tqdm
+        from tqdm import tqdm  # type: ignore
+
+        outcomes: dict[str, int] = dict()
 
         for _ in tqdm(range(options.play)):
             game = Game(players=(Computer(), Computer()))
             game.allow_king_capture = options.allow_king_capture
             game.play()
+            outcomes[game.status_str] = outcomes.get(game.status_str, 0) + 1
+            if game.is_stalemate():
+                game.render_board()
+        for o, ct in outcomes.items():
+            print(f"{o}: {ct}")
         sys.exit(0)
 
     # cli human vs computer
@@ -903,4 +947,4 @@ if __name__ == "__main__":
 
     # finished:
     game.render_board(clear=True)
-    print(f"\n{game.status.value if game.status else '-'}: {game.status_desc}!")
+    print("\n", game.status_str)

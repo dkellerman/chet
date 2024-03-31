@@ -22,8 +22,9 @@ class TestChess(unittest.TestCase):
         g = Game()
         g.turn = 1
         attacks, pin = g.get_attacks()
+        attacked_squares = list(set([c2sq(a[1]) for a in attacks]))
         self.assertEqual(
-            " ".join([c2sq(sq) for sq in sorted(attacks)]),
+            " ".join(sorted(attacked_squares)),
             " ".join(
                 sorted(
                     "b1 c1 d1 e1 f1 g1 a2 b2 c2 d2 e2 f2 g2 h2 a3 "
@@ -35,8 +36,9 @@ class TestChess(unittest.TestCase):
 
         g = Game("rnbqkbnr/8/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         attacks, pin = g.get_attacks()
+        attacked_squares = list(set([c2sq(a[1]) for a in attacks]))
         self.assertEqual(
-            " ".join([c2sq(sq) for sq in sorted(attacks)]),
+            " ".join(sorted(attacked_squares)),
             " ".join(
                 sorted(
                     set(
