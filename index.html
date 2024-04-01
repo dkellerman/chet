@@ -72,6 +72,10 @@
     let board;
     let status = PLAYING;
 
+    document.body.addEventListener('touchmove', function(event) {
+      event.preventDefault();
+    }, { passive: false });
+
     document.addEventListener('DOMContentLoaded', function () {
       loadGame();
     });
