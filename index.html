@@ -88,7 +88,7 @@
 
     async function newGame() {
       setStatus(LOADING, "Loading...");
-      const resp = await fetch('/api/games', { method: 'POST' });
+      const resp = await fetch('/games', { method: 'POST' });
       setGame(await resp.json());
       setStatus(PLAYING);
     }
@@ -105,7 +105,7 @@
     }
 
     async function makeMove(move) {
-      const resp = await fetch(`/api/games/${game.id}`, {
+      const resp = await fetch(`/games/${game.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

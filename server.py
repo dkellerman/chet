@@ -1,33 +1,24 @@
 #!/usr/bin/env python
 
-import os
 import flask
-
-app = flask.Flask(__name__)
-is_local = not os.getenv("VERCEL")
-url_prefix = "/api" if is_local else ""
-
-if is_local:
-    import sys, pathlib
-
-    sys.path.append(str(pathlib.Path(__file__).resolve().parent.parent))
-
-    @app.route("/")
-    def home():
-        return flask.send_from_directory("../", "index.html")
-
-
 import chess
 
+app = flask.Flask(__name__)
 
-@app.route(f"{url_prefix}/games", methods=["POST"])
+
+@app.route("/")
+def home():
+    return flask.send_from_directory("./", "index.html")
+
+
+@app.route(f"/games", methods=["POST"])
 def create_game():
     game = chess.Game()
     game.status = chess.Status.PLAYING
     return flask.make_response(flask.jsonify(game.to_dict()), 201)
 
 
-@app.route(f"{url_prefix}/games/<id>", methods=["POST"])
+@app.route(f"/games/<id>", methods=["POST"])
 def make_move(id):
     data = flask.request.get_json()
     fen, move = data["fen"], data["move"]
@@ -42,9 +33,5 @@ def make_move(id):
     return flask.jsonify(game.to_dict())
 
 
-def main(environ, start_response):  # vercel
-    return app(environ, start_response)
-
-
-if __name__ == "__main__":  # local dev
+if __name__ == "__main__":
     app.run(port=3000, debug=True)
