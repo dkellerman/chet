@@ -2,7 +2,9 @@
 
 Chess bot
 
+`pip install -r requirements.txt`
+
 * `./chess.py` - CLI
 * `./chess.py -p n` - self-play n games
-* `./tests.py` - tests
-* `vercel dev` - start server
+* `./api/index.py` - start UI server
+* `./tests.py` - run tests

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python
 
 import os
 import flask
@@ -11,14 +11,13 @@ if is_local:
     import sys, pathlib
 
     sys.path.append(str(pathlib.Path(__file__).resolve().parent.parent))
-    import chess
 
     @app.route("/")
     def home():
         return flask.send_from_directory("../", "index.html")
 
-else:
-    import chess
+
+import chess
 
 
 @app.route(f"{url_prefix}/games", methods=["POST"])
