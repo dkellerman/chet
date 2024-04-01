@@ -1,7 +1,12 @@
 #!/usr/bin/env python3.11
 
 import flask
-import chess
+try:
+    import chess
+except ImportError:
+    import sys, pathlib
+    sys.path.append(str(pathlib.Path(__file__).parent.parent))
+    import chess
 
 app = flask.Flask(__name__)
 
