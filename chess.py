@@ -697,12 +697,17 @@ class Player(abc.ABC):
 
 class Computer(Player):
     def get_move(self, game: Game) -> "Move":
-        score, best_move = self.minimax(game, 3, float("-inf"), float("inf"), True)
-        print("Score:", score)
-        if not best_move:
-            return random.choice(game.get_legal_moves())
-        else:
-            return best_move
+        return self.get_move_random(game)
+
+        # score, best_move = self.minimax(game, 3, float("-inf"), float("inf"), True)
+        # print("Score:", score)
+        # if not best_move:
+        #     return random.choice(game.get_legal_moves())
+        # else:
+        #     return best_move
+
+    def get_move_random(self, game: Game) -> "Move":
+        return random.choice(game.get_legal_moves())
 
     def minimax(
         self, game: Game, depth: int, alpha: float, beta: float, maximizing: bool
