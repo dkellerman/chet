@@ -157,7 +157,7 @@ class Game:
 
         # update castles available
         if piece_type == "k":
-            self.castles = [c for c in self.castles if c.upper() != color]
+            self.castles = [c for c in self.castles if c.isupper() != color]
         elif piece_type == "r" and move.from_ in [(0, 0), (0, 7)]:
             self.castles = [c for c in self.castles if c != ("Q" if color else "q")]
         elif piece_type == "r" and move.from_ in [(7, 0), (7, 7)]:

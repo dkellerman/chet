@@ -11,6 +11,8 @@
 
   <style>
     body {
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
     }
 
@@ -33,12 +35,17 @@
     }
 
     main {
-      padding: 20px;
+      padding: 30px 60px;
     }
 
     #board {
-      width: 400px;
       margin: auto;
+      max-width: 400px;
+    }
+    #status-msg {
+      margin: 20px auto;
+      text-align: center;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -54,12 +61,15 @@
 
   <main>
     <div id="board"></div>
+    <div id="status-msg"></div>
   </main>
 
   <script>
-    const url = new URL(window.location.href);
+    const LOADING = 1, PLAYING = 2, GAME_OVER = 3;
+    const statusMsg = document.getElementById('status-msg');
     let game;
     let board;
+    let status = PLAYING;
 
     document.addEventListener('DOMContentLoaded', function () {
       loadGame();
@@ -70,20 +80,27 @@
       if (g) {
         const game = JSON.parse(g);
         setGame(game);
+        setStatus(PLAYING);
       } else {
         newGame();
       }
     }
 
     async function newGame() {
+      setStatus(LOADING, "Loading...");
       const resp = await fetch('/api/games', { method: 'POST' });
       setGame(await resp.json());
+      setStatus(PLAYING);
     }
 
     function onDrop(source, target) {
+      if (status !== PLAYING) return 'snapback';
       const move = `${source}${target}`;
       if (!game.legal_moves.includes(move) &&
-        !game.legal_moves.includes(`${source}x${target}`)) return 'snapback';
+        !game.legal_moves.includes(`${source}x${target}`)) {
+          setStatus(PLAYING, "Illegal move: " + `${source}-${target}`);
+          return 'snapback';
+        }
       makeMove(move);
     }
 
@@ -110,7 +127,9 @@
       if (["e1g1", "e1c1", "e8g8", "e8c8"].includes(move) ||
         ["e1g1", "e1c1", "e8g8", "e8c8"].includes(compMove)) loadGame();
       if (newGame.status_desc) {
-        alert(newGame.status_desc);
+        setStatus(GAME_OVER, newGame.status_desc);
+      } else {
+        setStatus(PLAYING, "Computer moved: " + compMove);
       }
     }
 
@@ -126,6 +145,11 @@
       game = obj;
       board = Chessboard('board', config);
       sessionStorage.setItem('chet.game', JSON.stringify(game));
+    }
+
+    function setStatus(s, msg) {
+      status = s;
+      statusMsg.innerHTML = s === GAME_OVER ? `<h3>${msg ?? ''}</h3>` : msg ?? '';
     }
   </script>
 
