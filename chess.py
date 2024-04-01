@@ -10,6 +10,7 @@ import enum
 import argparse
 import uuid
 import abc
+import multiprocessing as mp
 from typing import Union, Optional, Callable
 
 
@@ -298,14 +299,14 @@ class Game:
                 if (
                     from_col > 0
                     and self.board.get(cap1)
-                    and getattr(self.board.get(cap1), 'color', None) != piece.color
+                    and getattr(self.board.get(cap1), "color", None) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != 1))
                 ):
                     _append_with_promos(cap1)
                 if (
                     from_col < 7
                     and self.board.get(cap2)
-                    and getattr(self.board.get(cap2), 'color', None) != piece.color
+                    and getattr(self.board.get(cap2), "color", None) != piece.color
                     and not (is_pinned and pin_axis and (pin_axis[0] != -1))
                 ):
                     _append_with_promos(cap2)
@@ -610,7 +611,7 @@ class Game:
                 return False
         return True
 
-    def randomize_board(self, max_pieces: Optional[int]=None) -> None:
+    def randomize_board(self, max_pieces: Optional[int] = None) -> None:
         while True:
             pieces: list[PieceType] = ["p", "n", "b", "r", "q", "P", "N", "B", "R", "Q"]
             board1d: list[Optional[Piece]] = [None] * 64
@@ -664,7 +665,7 @@ class Game:
             "players": [p.__class__.__qualname__ for p in self.players],
             "history": self.history,
             "legal_moves": [m.to_notation(self) for m in self.get_legal_moves()],
-            "last_move": self.last_move if self.last_move else None
+            "last_move": self.last_move if self.last_move else None,
         }
 
     @property
@@ -696,13 +697,55 @@ class Player(abc.ABC):
 
 class Computer(Player):
     def get_move(self, game: Game) -> "Move":
-        moves = game.get_legal_moves()
-        return random.choice(moves)
+        score, best_move = self.minimax(game, 3, float("-inf"), float("inf"), True)
+        print("Score:", score)
+        if not best_move:
+            return random.choice(game.get_legal_moves())
+        else:
+            return best_move
+
+    def minimax(
+        self, game: Game, depth: int, alpha: float, beta: float, maximizing: bool
+    ) -> tuple[float, Optional["Move"]]:
+        if depth == 0 or game.is_ended:
+            score = game.get_position_score()
+            if game.cur_color == BLACK:
+                score *= -1
+            return score, None
+
+        if maximizing:
+            max_eval = float("-inf")
+            best_move = None
+            for move in game.get_legal_moves():
+                eval, _ = self.minimax(
+                    game.lookahead(move), depth - 1, alpha, beta, False
+                )
+                if eval > max_eval:
+                    max_eval = eval
+                    best_move = move
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break
+            return max_eval, best_move
+        else:
+            min_eval = float("inf")
+            best_move = None
+            for move in game.get_legal_moves():
+                eval, _ = self.minimax(
+                    game.lookahead(move), depth - 1, alpha, beta, True
+                )
+                if eval < min_eval:
+                    min_eval = eval
+                    best_move = move
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break
+            return min_eval, best_move
 
 
 class Human(Player):
     def get_move(self, game: Game) -> "Move":
-        game.render_board(clear=True)
+        game.render_board(clear=False)
 
         # print last move if present
         if game.last_move:
