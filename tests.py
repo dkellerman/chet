@@ -211,10 +211,9 @@ class TestChess(unittest.TestCase):
         g = Game("3r4/8/8/8/8/8/r7/4K3 w - - 0 1")
         self.assertLegalMoves(g, "e1f1")
 
-        # TODO: must move out of check
-        # g = Game("8/4r3/8/8/8/8/P7/4K3 w - - 0 1")
-        # g.render_board()
-        # self.assertLegalMoves(g, "e1d1|e1d2|e1f1|e1f2")
+        # must move out of check
+        g = Game("8/4r3/8/8/8/8/P7/4K3 w - - 0 1")
+        self.assertLegalMoves(g, "e1d1|e1d2|e1f1|e1f2")
 
         # castles: basic
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
@@ -340,7 +339,13 @@ class TestChess(unittest.TestCase):
         self.assertLegalMoves(g, "e1f1|e1d2|e1f2|g1e2|a2e2|h2e2|d1e2|a2xe6")
         # intercept check diagonally
         g = Game("q5B1/4N3/8/7Q/3PK3/8/8/3R1R1Q w - - 0 1")
-        self.assertLegalMoves(g, "h5d5|e7d5|e7c6|d4d5|g8d5|e4e3|e4e5|e4f5|e4f4|e4f3|e4d3")
+        self.assertLegalMoves(g, "h5d5|e7d5|e7c6|d4d5|g8d5|e4e3|e4e5|e4f5|e4f4|e4d3")
+        # king can't move along axis of check (diagonal)
+        g = Game("8/8/5k2/8/3Q4/8/8/8 b - - 0 1")
+        self.assertLegalMoves(g, "f6e6|f6e7|f6f5|f6f7|f6g6|f6g5")
+        # king can't move along axis of check (flank)
+        g = Game("8/8/5k2/8/5R2/8/8/8 b - - 0 1")
+        self.assertLegalMoves(g, "f6e6|f6e7|f6e5|f6g7|f6g6|f6g5")
 
     def test_is_check(self):
         g = Game()

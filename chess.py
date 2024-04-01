@@ -258,14 +258,15 @@ class Game:
 
             if piece.type == "k":
                 for col_dir, row_dir in vectors:
+                    if (col_dir, row_dir) == check_axis:
+                        continue
                     col, row = from_col + col_dir, from_row + row_dir
                     if 0 <= col < 8 and 0 <= row < 8:
                         to_square = (col, row)
                         to_piece = self.board.get(to_square)
-                        if (not to_piece or to_piece.color != piece.color) and (
-                            self.allow_king_capture
-                            or (to_square not in attacked_squares)
-                        ):
+                        sq_avail = to_piece is None or to_piece.color != piece.color
+                        sq_attacked = to_square in attacked_squares
+                        if sq_avail and (self.allow_king_capture or not sq_attacked):
                             moves.append(Move(from_square, (col, row)))
 
             if piece.type == "p":
@@ -663,7 +664,7 @@ class Game:
             "players": [p.__class__.__qualname__ for p in self.players],
             "history": self.history,
             "legal_moves": [m.to_notation(self) for m in self.get_legal_moves()],
-            "last_move": self.last_move if self.last_move else None,
+            "last_move": self.last_move if self.last_move else None
         }
 
     @property

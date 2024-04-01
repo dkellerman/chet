@@ -88,15 +88,14 @@
     }
 
     async function makeMove(move) {
-      const data = {
-        id: game.id,
-        fen: game.fen,
-        move,
-      };
       const resp = await fetch(`/api/games/${game.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          id: game.id,
+          fen: game.fen,
+          move,
+        }),
       });
       const newGame = await resp.json();
       const compMove = newGame.last_move && newGame.last_move.includes('x') ?
@@ -107,6 +106,7 @@
       if (compMove) board.move(compMove);
       game = newGame;
       sessionStorage.setItem('chet.game', JSON.stringify(newGame));
+
       if (["e1g1", "e1c1", "e8g8", "e8c8"].includes(move) ||
         ["e1g1", "e1c1", "e8g8", "e8c8"].includes(compMove)) loadGame();
       if (newGame.status_desc) {
