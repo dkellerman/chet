@@ -72,7 +72,7 @@
     let board;
     let status = PLAYING;
 
-    document.body.addEventListener('touchmove', function(event) {
+    document.body.addEventListener('touchmove', function (event) {
       event.preventDefault();
     }, { passive: false });
 
@@ -101,22 +101,26 @@
     function onDrop(source, target) {
       if (status !== PLAYING) return 'snapback';
       let move = `${source}${target}`;
-      if (!game.legal_moves.includes(move) &&
-        !game.legal_moves.includes(`${source}x${target}`)) {
-        if (game.legal_moves.includes(`${source}x${target}=q`) ||
-          game.legal_moves.includes(`${source}${target}=q`)) {
-          // get input from user
+
+      const isPromo = game.legal_moves.includes(`${source}x${target}=q`) ||
+        game.legal_moves.includes(`${source}${target}=q`);
+      const isEP = game.legal_moves.includes(`${source}x${target} ep`) ||
+        game.legal_moves.includes(`${source}${target} ep`);
+      const isCastle = ["e1g1", "e1c1", "e8g8", "e8c8"].includes(move);
+      const isLegal = isCastle || isPromo || isEP || game.legal_moves.includes(move) ||
+        game.legal_moves.includes(`${source}x${target}`);
+
+      if (isLegal) {
+        if (isPromo) {
           const promotion = prompt("Promote to (q, r, b, n)?");
           if (['q', 'r', 'b', 'n'].includes(promotion))
             move += '=' + promotion;
-          else
-            return 'snapback';
-        } else {
-          setStatus(PLAYING, "Illegal move: " + `${source}-${target}`);
-          return 'snapback';
         }
+        makeMove(move);
+      } else {
+        setStatus(PLAYING, "Illegal move: " + `${source}-${target}`);
+        return 'snapback';
       }
-      makeMove(move);
     }
 
     async function makeMove(move) {
@@ -133,16 +137,13 @@
       const compMove = newGame.last_move && newGame.last_move.includes('x') ?
         newGame.last_move.replace('x', '-') :
         newGame.last_move.slice(0, 2) + '-' + newGame.last_move.slice(2);
+
       console.log("comp move", compMove);
       console.log("new game state", newGame);
-      if (compMove) board.move(compMove);
+      // if (compMove) board.move(compMove);
       game = newGame;
       sessionStorage.setItem('chet.game', JSON.stringify(newGame));
-
-      if (["e1g1", "e1c1", "e8g8", "e8c8"].includes(move) ||
-        ["e1g1", "e1c1", "e8g8", "e8c8"].includes(compMove) ||
-        move.includes("=") || move.includes("ep")
-      ) loadGame();
+      loadGame();
 
       if (newGame.status_desc) {
         setStatus(GAME_OVER, newGame.status_desc);

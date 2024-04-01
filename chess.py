@@ -10,7 +10,6 @@ import enum
 import argparse
 import uuid
 import abc
-import multiprocessing as mp
 from typing import Union, Optional, Callable
 
 
@@ -42,7 +41,7 @@ Check = tuple[Coords, Coords]  # square of attacking piece, axis
 PieceVectors = list[tuple[int, int]]
 
 
-def cache_by_fen(func: Callable):
+def cache_by_fen(func: Callable) -> Callable:
     cache = functools.lru_cache(maxsize=10000)
 
     @functools.wraps(func)
@@ -141,6 +140,10 @@ class Game:
         self.board[move.to] = Piece(promo) if promo else self.board[move.from_]
         self.board[move.from_] = None
 
+        # complete enpassant
+        if move.enpassant and self.enpassant:
+            self.board[self.enpassant] = None
+
         # mark enpassantable pawn
         self.enpassant = (
             move.to
@@ -180,12 +183,12 @@ class Game:
         self.check_game_over()
 
     def check_game_over(self) -> bool:
-        fen = self.fen.split()[0]
+        board_fen = self.fen.split()[0]
 
-        if self.allow_king_capture and "k" not in fen:
+        if self.allow_king_capture and "k" not in board_fen:
             self.status = Status.WWINS
             self.status_desc = "King captured"
-        elif self.allow_king_capture and "K" not in fen:
+        elif self.allow_king_capture and "K" not in board_fen:
             self.status = Status.BWINS
             self.status_desc = "King captured"
         elif self.is_checkmate():
@@ -197,7 +200,7 @@ class Game:
         elif self.draw_counter >= 50:
             self.status = Status.DRAW
             self.status_desc = "Fifty-move rule"
-        elif self.repititions[fen] >= 3:
+        elif self.repititions[board_fen] >= 3:
             self.status = Status.DRAW
             self.status_desc = "Threefold repetition"
 
@@ -216,10 +219,9 @@ class Game:
 
     @cache_by_fen
     def get_legal_moves(self) -> list["Move"]:
-        # first get opponent attacks and pins
+        # first get opponent attacks, pins, and checks
         attacks, pin = self.get_attacks()
         attacked_squares = [a[1] for a in attacks]
-
         checks = self.get_checks()
         is_check = len(checks) > 0
         double_check = len(checks) > 1
@@ -270,7 +272,7 @@ class Game:
                         if sq_avail and (self.allow_king_capture or not sq_attacked):
                             moves.append(Move(from_square, (col, row)))
 
-            if piece.type == "p":
+            elif piece.type == "p":
                 row_dir = 1 if piece.color == WHITE else -1
                 row_start = 1 if piece.color == WHITE else 6
                 push1 = (from_col, from_row + row_dir)
@@ -932,7 +934,20 @@ class Move:
                 castle = "Q" if game.cur_color else "q"
             elif col_to == 6:
                 castle = "K" if game.cur_color else "k"
-        return Move((col_from, row_from), (col_to, row_to), promo=promo, castle=castle)
+
+        is_enpassant = (
+            piece_from.type == "p"
+            and not game.board.get((col_to, row_to))
+            and col_to != col_from
+        )
+
+        return Move(
+            (col_from, row_from),
+            (col_to, row_to),
+            promo=promo,
+            castle=castle,
+            enpassant=is_enpassant,
+        )
 
     def to_notation(self, game: Optional[Game] = None) -> str:
         if self.action:
