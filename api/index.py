@@ -8,7 +8,7 @@ app = flask.Flask(__name__)
 
 @app.route("/")
 def home():
-    return flask.send_from_directory("./", "index.html")
+    return flask.send_from_directory("../", "index.html")
 
 
 @app.route(f"/games", methods=["POST"])
