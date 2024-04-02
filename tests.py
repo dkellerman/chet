@@ -403,23 +403,23 @@ class TestChess(unittest.TestCase):
         g = Game("7k/8/8/8/8/8/8/K7 w - - 0 1")
         self.assertTrue(g.is_ended)
         self.assertEqual(g.status, Status.DRAW)
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         # k/b v k
         g = Game("7k/8/8/8/8/8/8/KB6 w - - 0 1")
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         g = Game("6bk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         # k/n v k
         g = Game("7k/8/8/8/8/8/8/KN6 w - - 0 1")
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         g = Game("6nk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         # k/b v k/b - same color
         g = Game("6kb/8/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertEqual(g.status_desc, 'Insufficient material')
+        self.assertEqual(g.status_desc, "Insufficient material")
         # k/b v k/b - opp color
         g = Game("6k1/7b/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertNotEqual(g.status_desc, 'Insufficient material')
+        self.assertNotEqual(g.status_desc, "Insufficient material")
 
     def test_resign(self):
         g = Game()
@@ -486,13 +486,33 @@ class TestChess(unittest.TestCase):
     def test_position_score(self):
         g = Game()
         self.assertEqual(g.get_position_score(), 0.0)
-        g.make_moves(["e2e4", "d7d5", "e2xd5"])
+        g.make_moves(["e2e4", "d7d5", "e4xd5"])
         self.assertEqual(g.get_position_score(), 10.0)
         g.board[(3, 0)] = None
         self.assertEqual(g.get_position_score(), -80.0)
         g = Game("7k/RR6/8/8/8/8/8/K7 w - - 0 1")
         g.make_move("a7a8#")
         self.assertEqual(g.get_position_score(), float("inf"))
+
+    def test_minimax(self):
+        g = Game(fen="8/p7/8/3qk1n1/8/8/P2Q4/2K4N w - - 0 1")
+        p = Computer()
+        g.render_board()
+        p.lookahead_moves = 0
+        move = p.get_move(g)
+        self.assertEqual(move.to_notation(g), "d2xd5")
+        p.lookahead_moves = 1
+        move = p.get_move(g)
+        self.assertEqual(move.to_notation(g), "d2xg5")
+
+        # black
+        g.make_move("c1d1")
+        p.lookahead_moves = 0
+        move = p.get_move(g)
+        self.assertEqual(move.to_notation(g), "d5xd2")
+        p.lookahead_moves = 1
+        move = p.get_move(g)
+        self.assertEqual(move.to_notation(g), "d5xh1")
 
     def assertLegalMoves(self, g: Game, moves_str: str):
         moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])

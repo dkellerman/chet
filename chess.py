@@ -641,7 +641,7 @@ class Game:
         if self.status == Status.BWINS:
             return float("-inf")
         if self.status == Status.DRAW:
-            return 0
+            return 0.0
 
         wscore, bscore = 0.0, 0.0
         for piece in self.board.values():
@@ -654,7 +654,7 @@ class Game:
         return wscore - bscore
 
     def lookahead(self, move):
-        g = Game(fen=self.get_fen(), id="lookahead")
+        g = Game(fen=self.get_fen())
         g.make_move(move)
         return g
 
@@ -698,56 +698,61 @@ class Player(abc.ABC):
 
 
 class Computer(Player):
+    lookahead_moves: int = 2
+    random_move: bool = False
+
     def get_move(self, game: Game) -> "Move":
-        return self.get_move_random(game)
+        moves = game.get_legal_moves()
+        if self.random_move:
+            return random.choice(moves)
+        # move = max(moves, key=lambda m: self.evaluate_move(m, game))
+        scores = [(m, self.evaluate_move(m, game)) for m in moves]
+        max_score = max(scores, key=lambda x: x[1])[1]
+        best_moves = [m for m, score in scores if score == max_score]
+        move = random.choice(best_moves)
+        return move
 
-        # score, best_move = self.minimax(game, 3, float("-inf"), float("inf"), True)
-        # print("Score:", score)
-        # if not best_move:
-        #     return random.choice(game.get_legal_moves())
-        # else:
-        #     return best_move
-
-    def get_move_random(self, game: Game) -> "Move":
-        return random.choice(game.get_legal_moves())
+    def evaluate_move(self, move: str, game: Game) -> float:
+        maximizing = not game.cur_color
+        score = self.minimax(
+            game.lookahead(move), self.lookahead_moves, maximizing=maximizing
+        )
+        score = -score if maximizing else score
+        # print(f"Move: {move} => Score: {score}")
+        return score
 
     def minimax(
-        self, game: Game, depth: int, alpha: float, beta: float, maximizing: bool
-    ) -> tuple[float, Optional["Move"]]:
+        self,
+        game: Game,
+        depth: int,
+        alpha: float = float("-inf"),
+        beta: float = float("inf"),
+        maximizing: bool = False,
+    ) -> float:
         if depth == 0 or game.is_ended:
             score = game.get_position_score()
-            if game.cur_color == BLACK:
-                score *= -1
-            return score, None
+            return score
 
         if maximizing:
             max_eval = float("-inf")
-            best_move = None
             for move in game.get_legal_moves():
-                eval, _ = self.minimax(
-                    game.lookahead(move), depth - 1, alpha, beta, False
-                )
+                eval = self.minimax(game.lookahead(move), depth - 1, alpha, beta, False)
                 if eval > max_eval:
                     max_eval = eval
-                    best_move = move
                 alpha = max(alpha, eval)
                 if beta <= alpha:
                     break
-            return max_eval, best_move
+            return max_eval
         else:
             min_eval = float("inf")
-            best_move = None
             for move in game.get_legal_moves():
-                eval, _ = self.minimax(
-                    game.lookahead(move), depth - 1, alpha, beta, True
-                )
+                eval = self.minimax(game.lookahead(move), depth - 1, alpha, beta, True)
                 if eval < min_eval:
                     min_eval = eval
-                    best_move = move
                 beta = min(beta, eval)
                 if beta <= alpha:
                     break
-            return min_eval, best_move
+            return min_eval
 
 
 class Human(Player):
@@ -1023,7 +1028,31 @@ def sq_color(c: Coords):
     return WHITE if (c[0] + c[1]) % 2 else BLACK
 
 
-if __name__ == "__main__":
+def self_play(n: int, allow_king_capture: bool = False) -> None:
+    from tqdm import tqdm  # type: ignore
+
+    outcomes: dict[str, int] = dict()
+
+    for _ in tqdm(range(n)):
+        game = Game(players=(Computer(), Computer()))
+        game.allow_king_capture = allow_king_capture
+        game.play()
+        outcomes[game.status_str] = outcomes.get(game.status_str, 0) + 1
+    for o, ct in outcomes.items():
+        print(f"{o}: {ct}")
+
+
+def play_game(black=False, allow_king_capture=False) -> None:
+    players: Players = (Human(), Computer()) if not black else (Computer(), Human())
+    game = Game(players=players)
+    game.allow_king_capture = allow_king_capture
+    game.play()
+    # finished:
+    game.render_board(clear=True)
+    print("\n", game.status_str)
+
+
+def main() -> None:
     argp = argparse.ArgumentParser()
     argp.add_argument("--play", "-p", type=int, default=0)
     argp.add_argument("--allow-king-capture", "-k", action="store_true")
@@ -1032,29 +1061,12 @@ if __name__ == "__main__":
 
     # self-play
     if options.play > 0:
-        from tqdm import tqdm  # type: ignore
-
-        outcomes: dict[str, int] = dict()
-
-        for _ in tqdm(range(options.play)):
-            game = Game(players=(Computer(), Computer()))
-            game.allow_king_capture = options.allow_king_capture
-            game.play()
-            outcomes[game.status_str] = outcomes.get(game.status_str, 0) + 1
-            if game.is_stalemate():
-                game.render_board()
-        for o, ct in outcomes.items():
-            print(f"{o}: {ct}")
+        self_play(options.play, options.allow_king_capture)
         sys.exit(0)
 
     # cli human vs computer
-    players: Players = (
-        (Human(), Computer()) if not options.black else (Computer(), Human())
-    )
-    game = Game(players=players)
-    game.allow_king_capture = options.allow_king_capture
-    game.play()
+    play_game(options.black, options.allow_king_capture)
 
-    # finished:
-    game.render_board(clear=True)
-    print("\n", game.status_str)
+
+if __name__ == "__main__":
+    main()
