@@ -10,6 +10,7 @@ import enum
 import argparse
 import uuid
 import abc
+import math
 from typing import Union, Optional, Callable
 
 
@@ -637,11 +638,11 @@ class Game:
     @cache_by_fen
     def get_position_score(self) -> float:
         if self.status == Status.WWINS:
-            return float("inf")
+            return math.inf
         if self.status == Status.BWINS:
-            return float("-inf")
+            return -math.inf
         if self.status == Status.DRAW:
-            return 0.0
+            return -0.01
 
         wscore, bscore = 0.0, 0.0
         for piece in self.board.values():
@@ -654,7 +655,7 @@ class Game:
         return wscore - bscore
 
     def lookahead(self, move):
-        g = Game(fen=self.get_fen())
+        g = Game(fen=self.fen)
         g.make_move(move)
         return g
 
@@ -698,14 +699,13 @@ class Player(abc.ABC):
 
 
 class Computer(Player):
-    lookahead_moves: int = 2
+    lookahead_moves: int = 1
     random_move: bool = False
 
     def get_move(self, game: Game) -> "Move":
         moves = game.get_legal_moves()
         if self.random_move:
             return random.choice(moves)
-        # move = max(moves, key=lambda m: self.evaluate_move(m, game))
         scores = [(m, self.evaluate_move(m, game)) for m in moves]
         max_score = max(scores, key=lambda x: x[1])[1]
         best_moves = [m for m, score in scores if score == max_score]
@@ -725,8 +725,8 @@ class Computer(Player):
         self,
         game: Game,
         depth: int,
-        alpha: float = float("-inf"),
-        beta: float = float("inf"),
+        alpha: float = -math.inf,
+        beta: float = math.inf,
         maximizing: bool = False,
     ) -> float:
         if depth == 0 or game.is_ended:
@@ -734,7 +734,7 @@ class Computer(Player):
             return score
 
         if maximizing:
-            max_eval = float("-inf")
+            max_eval = -math.inf
             for move in game.get_legal_moves():
                 eval = self.minimax(game.lookahead(move), depth - 1, alpha, beta, False)
                 if eval > max_eval:
@@ -744,7 +744,7 @@ class Computer(Player):
                     break
             return max_eval
         else:
-            min_eval = float("inf")
+            min_eval = math.inf
             for move in game.get_legal_moves():
                 eval = self.minimax(game.lookahead(move), depth - 1, alpha, beta, True)
                 if eval < min_eval:
@@ -1028,13 +1028,25 @@ def sq_color(c: Coords):
     return WHITE if (c[0] + c[1]) % 2 else BLACK
 
 
-def self_play(n: int, allow_king_capture: bool = False) -> None:
+def self_play(
+    n: int,
+    allow_king_capture: bool = False,
+    lookahead: Optional[int] = None,
+    use_random: bool = False,
+) -> None:
     from tqdm import tqdm  # type: ignore
 
     outcomes: dict[str, int] = dict()
 
     for _ in tqdm(range(n)):
-        game = Game(players=(Computer(), Computer()))
+        c1, c2 = Computer(), Computer()
+        if use_random:
+            c1.random_move = True
+            c2.random_move = True
+        elif lookahead is not None:
+            c1.lookahead_moves = lookahead
+            c2.lookahead_moves = lookahead
+        game = Game(players=(c1, c2))
         game.allow_king_capture = allow_king_capture
         game.play()
         outcomes[game.status_str] = outcomes.get(game.status_str, 0) + 1
@@ -1055,13 +1067,20 @@ def play_game(black=False, allow_king_capture=False) -> None:
 def main() -> None:
     argp = argparse.ArgumentParser()
     argp.add_argument("--play", "-p", type=int, default=0)
+    argp.add_argument("--lookahead", "-l", type=int, default=None)
+    argp.add_argument("--random", "-r", action="store_true")
     argp.add_argument("--allow-king-capture", "-k", action="store_true")
     argp.add_argument("--black", "-b", action="store_true")
     options = argp.parse_args()
 
     # self-play
     if options.play > 0:
-        self_play(options.play, options.allow_king_capture)
+        self_play(
+            options.play,
+            allow_king_capture=options.allow_king_capture,
+            lookahead=options.lookahead,
+            use_random=options.random,
+        )
         sys.exit(0)
 
     # cli human vs computer

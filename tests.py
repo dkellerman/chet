@@ -497,7 +497,6 @@ class TestChess(unittest.TestCase):
     def test_minimax(self):
         g = Game(fen="8/p7/8/3qk1n1/8/8/P2Q4/2K4N w - - 0 1")
         p = Computer()
-        g.render_board()
         p.lookahead_moves = 0
         move = p.get_move(g)
         self.assertEqual(move.to_notation(g), "d2xd5")
@@ -505,7 +504,7 @@ class TestChess(unittest.TestCase):
         move = p.get_move(g)
         self.assertEqual(move.to_notation(g), "d2xg5")
 
-        # black
+        # black moves
         g.make_move("c1d1")
         p.lookahead_moves = 0
         move = p.get_move(g)
