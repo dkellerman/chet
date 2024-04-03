@@ -40,9 +40,8 @@ def game2dict(id, game):
         "fen": game.fen,
         "status": game.status[0],
         "status_desc": game.status[1],
-        "players": [p.__class__.__qualname__ for p in game.players],
         "history": game.history,
-        "legal_moves": [m.to_notation(game) for m in game.get_legal_moves()],
+        "legal_moves": game.get_legal_moves(),
         "last_move": game.last_move if game.last_move else None,
     }
 

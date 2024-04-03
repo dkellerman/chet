@@ -102,13 +102,8 @@
       if (status !== PLAYING) return 'snapback';
       let move = `${source}${target}`;
 
-      const isPromo = game.legal_moves.includes(`${source}x${target}=q`) ||
-        game.legal_moves.includes(`${source}${target}=q`);
-      const isEP = game.legal_moves.includes(`${source}x${target} ep`) ||
-        game.legal_moves.includes(`${source}${target} ep`);
-      const isCastle = ["e1g1", "e1c1", "e8g8", "e8c8"].includes(move);
-      const isLegal = isCastle || isPromo || isEP || game.legal_moves.includes(move) ||
-        game.legal_moves.includes(`${source}x${target}`);
+      const isPromo = game.legal_moves.includes(`${source}${target}=q`);
+      const isLegal = isPromo || game.legal_moves.includes(move);
 
       if (isLegal) {
         if (isPromo) {
@@ -134,9 +129,7 @@
         }),
       });
       const newGame = await resp.json();
-      const compMove = newGame.last_move && newGame.last_move.includes('x') ?
-        newGame.last_move.replace('x', '-') :
-        newGame.last_move.slice(0, 2) + '-' + newGame.last_move.slice(2);
+      const compMove = newGame.last_move.slice(0, 2) + '-' + newGame.last_move.slice(2);
 
       console.log("comp move", compMove);
       console.log("new game state", newGame);
