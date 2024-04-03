@@ -77,7 +77,7 @@ class Game:
 
         # move
         self.board[to] = promo if promo else self.board[from_]
-        self.board[from_] = ''
+        self.board[from_] = ""
 
         # complete enpassant
         if is_enp and self.enpassant:
@@ -105,8 +105,10 @@ class Game:
             self.castles = [c for c in self.castles if c != ("K" if color else "k")]
 
         # flip turn
-        self.history.append(move)
         self.turn = not self.turn
+
+        # update state
+        self.history.append(move)
         self.fen = self.get_fen()
 
         # 50-move rule update
@@ -198,8 +200,10 @@ class Game:
                     col, row = from_col + col_dir, from_row + row_dir
                     if 0 <= col < 8 and 0 <= row < 8:
                         to_square = (col, row)
-                        to_piece = self.board.get(to_square, '')
-                        sq_avail = not to_piece or (to_piece.isupper() != piece.isupper())
+                        to_piece = self.board.get(to_square, "")
+                        sq_avail = not to_piece or (
+                            to_piece.isupper() != piece.isupper()
+                        )
                         sq_attacked = to_square in attacked_squares
                         if sq_avail and (self.allow_king_capture or not sq_attacked):
                             moves.append((from_square, (col, row), ""))
@@ -233,14 +237,14 @@ class Game:
                 if (
                     from_col > 0
                     and self.board.get(cap1)
-                    and self.board.get(cap1, '').isupper() != piece.isupper()
+                    and self.board.get(cap1, "").isupper() != piece.isupper()
                     and not (is_pinned and pin_axis and (pin_axis[0] != 1))
                 ):
                     _append_with_promos(cap1)
                 if (
                     from_col < 7
                     and self.board.get(cap2)
-                    and self.board.get(cap2, '').isupper() != piece.isupper()
+                    and self.board.get(cap2, "").isupper() != piece.isupper()
                     and not (is_pinned and pin_axis and (pin_axis[0] != -1))
                 ):
                     _append_with_promos(cap2)
@@ -266,7 +270,7 @@ class Game:
                 for col_dir, row_dir in vectors:
                     col, row = from_col + col_dir, from_row + row_dir
                     to_square = (col, row)
-                    to_piece = self.board.get(to_square, '')
+                    to_piece = self.board.get(to_square, "")
                     if 0 <= col < 8 and 0 <= row < 8:
                         if not to_piece or to_piece.isupper() != piece.isupper():
                             moves.append((from_square, (col, row), ""))
@@ -274,11 +278,11 @@ class Game:
         # filter out moves that don't resolve check
         if is_check and not self.allow_king_capture:
             intercepts: list[Coords] = []
-            if self.board.get(check_from, '').lower() in ["r", "q", "b"]:
+            if self.board.get(check_from, "").lower() in ["r", "q", "b"]:
                 sq = check_from
                 while True:
                     sq = sq[0] + check_axis[0], sq[1] + check_axis[1]
-                    if self.board.get(sq, '').lower() == "k":
+                    if self.board.get(sq, "").lower() == "k":
                         break
                     intercepts.append(sq)
 
@@ -286,7 +290,7 @@ class Game:
                 m
                 for m in moves
                 if (
-                    self.board.get(m[0], '').lower() == "k"
+                    self.board.get(m[0], "").lower() == "k"
                     or m[1] == check_from
                     or m[1] in intercepts
                 )
@@ -549,6 +553,48 @@ class Game:
         return " ".join(self.status)
 
 
+class Board(collections.defaultdict):
+    def __init__(self, board: Optional[dict] = None) -> None:
+        super().__init__(lambda: "")
+        if board:
+            self.update(board)
+
+    def to_fen(self) -> str:
+        board_str = ""
+        for row_index in range(7, -1, -1):
+            empty_count = 0
+            for col_index in range(8):
+                piece = self.get((col_index, row_index))
+                if piece:
+                    if empty_count > 0:
+                        board_str += str(empty_count)
+                        empty_count = 0
+                    board_str += str(piece)
+                else:
+                    empty_count += 1
+            if empty_count > 0:
+                board_str += str(empty_count)
+            if row_index > 0:
+                board_str += "/"
+        return board_str
+
+    @classmethod
+    def from_fen(cls, fen: str) -> "Board":
+        board = dict()
+        rows = fen.split("/")
+        for row_index, row in enumerate(rows):
+            col_index = 0
+            for char in row:
+                if char.isdigit():
+                    col_index += int(char)
+                else:
+                    if char not in "pnbrqkPNBRQK":
+                        raise ValueError("Invalid FEN piece")
+                    board[(col_index, 7 - row_index)] = char
+                    col_index += 1
+        return cls(board=board)
+
+
 class Computer:
     lookahead_moves: int = 1
     random_move: bool = False
@@ -604,48 +650,6 @@ class Computer:
                 if beta <= alpha:
                     break
             return min_eval
-
-
-class Board(collections.defaultdict):
-    def __init__(self, board: Optional[dict] = None) -> None:
-        super().__init__(lambda: "")
-        if board:
-            self.update(board)
-
-    def to_fen(self) -> str:
-        board_str = ""
-        for row_index in range(7, -1, -1):
-            empty_count = 0
-            for col_index in range(8):
-                piece = self.get((col_index, row_index))
-                if piece:
-                    if empty_count > 0:
-                        board_str += str(empty_count)
-                        empty_count = 0
-                    board_str += str(piece)
-                else:
-                    empty_count += 1
-            if empty_count > 0:
-                board_str += str(empty_count)
-            if row_index > 0:
-                board_str += "/"
-        return board_str
-
-    @classmethod
-    def from_fen(cls, fen: str) -> "Board":
-        board = dict()
-        rows = fen.split("/")
-        for row_index, row in enumerate(rows):
-            col_index = 0
-            for char in row:
-                if char.isdigit():
-                    col_index += int(char)
-                else:
-                    if char not in "pnbrqkPNBRQK":
-                        raise ValueError("Invalid FEN piece")
-                    board[(col_index, 7 - row_index)] = char
-                    col_index += 1
-        return cls(board=board)
 
 
 def sq2c(sq: str) -> Coords:
@@ -707,22 +711,19 @@ def self_play(
 
 def main() -> None:
     argp = argparse.ArgumentParser()
-    argp.add_argument("--play", "-p", type=int, default=0)
+    argp.add_argument("--play", "-p", type=int, default=10)
     argp.add_argument("--lookahead", "-l", type=int, default=None)
     argp.add_argument("--random", "-r", action="store_true")
     argp.add_argument("--allow-king-capture", "-k", action="store_true")
-    argp.add_argument("--black", "-b", action="store_true")
     options = argp.parse_args()
 
-    # self-play
-    if options.play > 0:
-        self_play(
-            options.play,
-            allow_king_capture=options.allow_king_capture,
-            lookahead=options.lookahead,
-            use_random=options.random,
-        )
-        sys.exit(0)
+    self_play(
+        options.play,
+        allow_king_capture=options.allow_king_capture,
+        lookahead=options.lookahead,
+        use_random=options.random,
+    )
+    sys.exit(0)
 
 
 if __name__ == "__main__":
