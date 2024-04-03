@@ -1,12 +1,10 @@
 #!/usr/bin/env python3.11
 
-import re
 import random
 import sys
 import functools
 import collections
 import argparse
-import abc
 import math
 from typing import Union, Optional, Callable
 
@@ -21,6 +19,7 @@ Pin = tuple[Coords, Coords]  # square of pinned piece, axis
 Attack = tuple[Coords, Coords]  # square of attacking piece, square of attacked piece
 Check = tuple[Coords, Coords]  # square of attacking piece, axis
 PieceVectors = list[tuple[int, int]]
+Move = tuple[Coords, Coords, Optional[str]]
 
 
 def cache_by_fen(func: Callable) -> Callable:
@@ -62,73 +61,51 @@ class Game:
         self.allow_king_capture = False
         self.set_fen(fen)
 
-    def make_moves(self, moves: list["Move"]) -> None:
-        for move in moves:
-            self.make_move(move)
-
-    def make_move(self, val: Union["Move", str]):
-        move: Optional[Move] = None
-        notation: str = ""
-        if isinstance(val, str):
-            notation = val
-            move = Move.parse(notation, self)
-        elif isinstance(val, Move):
-            move = val
-            if move:
-                notation = move.to_notation(self)
-
-        if not move:
-            raise ValueError("Invalid move")
-
-        if not move.from_ or not move.to:
-            raise ValueError("Invalid move")
-
-        piece = self.board[move.from_]
+    def make_move(self, move: str) -> None:
+        from_, to, promo = move2c(move)
+        piece = self.board[from_]
         piece_type = piece.type if piece else None
         color = piece.color if piece else None
-        promo: Optional[str] = (
-            move.promo.upper() if move.promo and self.turn else move.promo  # type: ignore
-        )
+        is_enp = piece_type == "p" and self.board[to] is None and from_[0] != to[0]
+        is_capture = is_enp or (self.board[to] is not None)
 
         # move
-        self.board[move.to] = Piece(promo) if promo else self.board[move.from_]
-        self.board[move.from_] = None
+        self.board[to] = Piece(promo) if promo else self.board[from_]
+        self.board[from_] = None
 
         # complete enpassant
-        if move.enpassant and self.enpassant:
+        if is_enp and self.enpassant:
             self.board[self.enpassant] = None
 
         # mark enpassantable pawn
         self.enpassant = (
-            move.to
-            if piece_type == "p" and abs(move.from_[1] - move.to[1]) == 2
-            else None
+            to if piece_type == "p" and abs(from_[1] - to[1]) == 2 else None
         )
 
         # complete castle
-        if piece_type == "k" and move.from_[0] == 4 and move.to[0] == 6:
+        if piece_type == "k" and from_[0] == 4 and to[0] == 6:
             self.board[(5, 0 if color else 7)] = Piece("R" if color else "r")
             self.board[(7, 0 if color else 7)] = None
-        elif piece_type == "k" and move.from_[0] == 4 and move.to[0] == 2:
+        elif piece_type == "k" and from_[0] == 4 and to[0] == 2:
             self.board[(3, 0 if color else 7)] = Piece("R" if color else "r")
             self.board[(0, 0 if color else 7)] = None
 
         # update castles available
         if piece_type == "k":
             self.castles = [c for c in self.castles if c.isupper() != color]
-        elif piece_type == "r" and move.from_ in [(0, 0), (0, 7)]:
+        elif piece_type == "r" and from_ in [(0, 0), (0, 7)]:
             self.castles = [c for c in self.castles if c != ("Q" if color else "q")]
-        elif piece_type == "r" and move.from_ in [(7, 0), (7, 7)]:
+        elif piece_type == "r" and from_ in [(7, 0), (7, 7)]:
             self.castles = [c for c in self.castles if c != ("K" if color else "k")]
 
         # flip turn
-        self.history.append(notation)
+        self.history.append(move)
         self.turn = not self.turn
         self.fen = self.get_fen()
 
         # 50-move rule update
         self.draw_counter += 1
-        if (self.board[move.to] is None and (piece_type != "p")) or "x" in notation:
+        if (self.board[to] is None and (piece_type != "p")) or is_capture:
             self.draw_counter = 0
 
         # 3-fold repetition update
@@ -140,31 +117,31 @@ class Game:
         board_fen = self.fen.split()[0]
 
         if self.allow_king_capture and "k" not in board_fen:
-            self.status = ("wwins", "King captured")
+            self.status = ("wwins", "king_captured")
         elif self.allow_king_capture and "K" not in board_fen:
-            self.status = ("bwins", "King captured")
+            self.status = ("bwins", "king_captured")
         elif self.is_checkmate():
-            self.status = ("bwins" if self.turn else "wwins", "Checkmate")
+            self.status = ("bwins" if self.turn else "wwins", "checkmate")
         elif self.is_stalemate():
-            self.status = ("draw", "Stalemate")
+            self.status = ("draw", "stalemate")
         elif self.draw_counter >= 50:
-            self.status = ("draw", "Fifty-move rule")
+            self.status = ("draw", "fifty_move")
         elif self.repititions[board_fen] >= 3:
-            self.status = ("draw", "Threefold repetition")
+            self.status = ("draw", "threefold_rep")
 
         # insufficient material
         material = "".join(sorted([str(p) for p in self.board.values() if p]))
         if material in ["Kk", "KNk", "Kkn", "BKk", "Kbk"]:
-            self.status = ("draw", "Insufficient material")
+            self.status = ("draw", "insuff_material")
         if material == "BKbk":
             bishops = [sq for sq, p in self.board.items() if p and p.type == "b"]
             if sq_color(bishops[0]) == sq_color(bishops[1]):
-                self.status = ("draw", "Insufficient material")
+                self.status = ("draw", "insuff_material")
 
         return self.is_ended
 
     @cache_by_fen
-    def get_legal_moves(self) -> list["Move"]:
+    def get_legal_moves(self) -> list[str]:
         # first get opponent attacks, pins, and checks
         attacks, pin = self.get_attacks()
         attacked_squares = [a[1] for a in attacks]
@@ -178,6 +155,7 @@ class Game:
 
         # get legal moves for current player
         moves: list[Move] = []
+
         for from_square, piece in self.board.items():
             if piece is None or piece.color != self.turn:
                 continue
@@ -216,7 +194,7 @@ class Game:
                         sq_avail = to_piece is None or to_piece.color != piece.color
                         sq_attacked = to_square in attacked_squares
                         if sq_avail and (self.allow_king_capture or not sq_attacked):
-                            moves.append(Move(from_square, (col, row)))
+                            moves.append((from_square, (col, row), None))
 
             elif piece.type == "p":
                 row_dir = 1 if piece.color == WHITE else -1
@@ -229,9 +207,9 @@ class Game:
                 def _append_with_promos(to):
                     if to[1] in [0, 7]:
                         for promo in ["q", "r", "b", "n"]:
-                            moves.append(Move(from_square, to, promo=promo))
+                            moves.append((from_square, to, promo))
                     else:
-                        moves.append(Move(from_square, to))
+                        moves.append((from_square, to, None))
 
                 if not is_pinned or (pin_axis and pin_axis[0] == 0):
                     if push1[1] <= 7 and push1[1] >= 0 and not self.board.get(push1):
@@ -265,7 +243,7 @@ class Game:
                     and abs(from_col - self.enpassant[0]) == 1
                 ):
                     enp_to = (self.enpassant[0], from_row + row_dir)
-                    moves.append(Move(from_square, enp_to, enpassant=True))
+                    moves.append((from_square, enp_to, None))
 
             elif piece.type == "r":
                 moves += self.get_moves_by_vectors(from_square, vectors)
@@ -283,7 +261,7 @@ class Game:
                     to_piece = self.board.get(to_square)
                     if 0 <= col < 8 and 0 <= row < 8:
                         if not to_piece or to_piece.color != piece.color:
-                            moves.append(Move(from_square, (col, row)))
+                            moves.append((from_square, (col, row), None))
 
         # filter out moves that don't resolve check
         if is_check and not self.allow_king_capture:
@@ -300,9 +278,9 @@ class Game:
                 m
                 for m in moves
                 if (
-                    getattr(self.board[m.from_], "type", None) == "k"
-                    or m.to == check_from
-                    or m.to in intercepts
+                    getattr(self.board[m[0]], "type", None) == "k"
+                    or m[1] == check_from
+                    or m[1] in intercepts
                 )
             ]
 
@@ -317,7 +295,7 @@ class Game:
                 and (self.allow_king_capture or (not (5, row) in attacked_squares))
                 and (self.allow_king_capture or (not (6, row) in attacked_squares))
             ):
-                moves.append(Move((4, row), (6, row), castle=kside))
+                moves.append(((4, row), (6, row), None))
 
             qside = "Q" if self.turn else "q"
             if (
@@ -329,9 +307,9 @@ class Game:
                 and (self.allow_king_capture or (not (2, row) in attacked_squares))
                 and (self.allow_king_capture or (not (3, row) in attacked_squares))
             ):
-                moves.append(Move((4, row), (2, row), castle=qside))
+                moves.append(((4, row), (2, row), None))
 
-        return moves
+        return [c2move(m) for m in moves]
 
     @cache_by_fen
     def get_attacks(self) -> tuple[list[Attack], Optional[Pin]]:
@@ -438,23 +416,17 @@ class Game:
                 if row < 0 or row > 7 or col < 0 or col > 7:
                     break
                 if not self.board.get(to_square):
-                    moves.append(Move(from_square, to_square))
+                    moves.append((from_square, to_square, None))
                 elif getattr(self.board.get(to_square), "color", None) != piece.color:
-                    moves.append(Move(from_square, to_square))
+                    moves.append((from_square, to_square, None))
                     break
                 else:
                     break
 
         return moves
 
-    def is_legal_move(self, val: Union["Move", str]) -> bool:
-        move: Optional[Move] = None
-        if isinstance(val, str):
-            move = Move.parse(val, self)
-        else:
-            move = val
-        if not move:
-            raise ValueError("Invalid move")
+    def is_legal_move(self, move: str) -> bool:
+        move = move.replace(r"x", "").replace(r"-", "").strip()
         return move in self.get_legal_moves()
 
     def is_check(self) -> bool:
@@ -576,7 +548,7 @@ class Computer:
     lookahead_moves: int = 1
     random_move: bool = False
 
-    def get_move(self, game: Game) -> "Move":
+    def get_move(self, game: Game) -> str:
         moves = game.get_legal_moves()
         if self.random_move:
             return random.choice(moves)
@@ -696,115 +668,6 @@ class Board:
         return cls(board)
 
 
-class Move:
-    NOTATION_RE = re.compile(
-        r"^([NBRQKP])?([a-h])?([1-8])?([x-])?([a-h])([1-8])(=?[nrbqNRBQ])?"
-        r"(\+|#|\?|\!|(\s*[eE]\.?[pP]\.?))*$"
-    )
-
-    def __init__(
-        self,
-        from_: Coords,
-        to: Coords,
-        promo: Optional[str] = None,
-        enpassant: Optional[bool] = False,
-        castle: Optional[str] = None,
-    ):
-        self.from_ = from_
-        self.to = to
-        self.promo = promo
-        self.enpassant = enpassant
-        self.castle = castle
-
-    def __eq__(self, obj: object) -> bool:
-        if not obj or not type(obj) == Move:
-            return False
-        return obj.from_ == self.from_ and obj.to == self.to and obj.promo == self.promo
-
-    @classmethod
-    def parse(cls, val: str, game: Game) -> Optional["Move"]:
-        val = val.strip()
-
-        if not val:
-            return None
-        elif val.lower().startswith("o-o-o") or val.lower().startswith("0-0-0"):
-            row = 0 if game.turn else 7
-            return Move((4, row), (2, row), castle="Q" if game.turn else "q")
-        elif val.lower().startswith("o-o") or val.lower().startswith("0-0"):
-            row = 0 if game.turn else 7
-            return Move((4, row), (6, row), castle="K" if game.turn else "k")
-
-        match = cls.NOTATION_RE.match(val)
-
-        if not match:
-            return None
-
-        piece_from_str = (match.group(1) or "p").lower()
-        piece_from = Piece(piece_from_str, game.turn)
-        col_from: Optional[int] = (
-            ord(match.group(2)) - ord("a") if match.group(2) else None
-        )
-        row_from: Optional[int] = int(match.group(3)) - 1 if match.group(3) else None
-        col_to: int = ord(match.group(5)) - ord("a")
-        row_to: int = int(match.group(6)) - 1
-
-        if not col_from or not row_from:
-            for move in game.get_legal_moves():
-                if (
-                    (move.to == (col_to, row_to))
-                    and (game.board[move.from_] == piece_from)
-                    and (col_from is None or move.from_[0] == col_from)
-                    and (row_from is None or move.from_[1] == row_from)
-                ):
-                    col_from, row_from = move.from_
-                    break
-            if col_from is None or row_from is None:
-                return None
-
-        promo = match.group(7) or None
-        if promo:
-            promo = promo.lstrip("=").lower()
-
-        castle = None
-        piece = game.board.get((col_from, row_from))
-        if col_from == 4 and piece and piece.type == "k":
-            if col_to == 2:
-                castle = "Q" if game.turn else "q"
-            elif col_to == 6:
-                castle = "K" if game.turn else "k"
-
-        is_enpassant = (
-            piece_from.type == "p"
-            and not game.board.get((col_to, row_to))
-            and col_to != col_from
-        )
-
-        return Move(
-            (col_from, row_from),
-            (col_to, row_to),
-            promo=promo,
-            castle=castle,
-            enpassant=is_enpassant,
-        )
-
-    def to_notation(self, game: Optional[Game] = None) -> str:
-        if not self.from_ or not self.to:
-            raise ValueError("Invalid move")
-        col_from, row_from = self.from_
-        col_to, row_to = self.to
-        captured = game and game.board.get(self.to, None)
-        sep = "" if not captured and not self.enpassant else "x"
-
-        return (
-            f"{c2sq((col_from, row_from))}{sep}"
-            f"{c2sq((col_to, row_to))}"
-            f"{'=' + self.promo.lower() if self.promo else ''}"
-        )
-
-    def __repr__(self) -> str:
-        return self.to_notation(None)
-
-
 class Piece:
     SCORES = dict(p=10, n=30, b=35, r=50, q=90, k=0)
     VECTORS: dict[str, PieceVectors] = dict(
@@ -853,6 +716,18 @@ def sq2c(sq: str) -> Coords:
 def c2sq(coords: Coords) -> str:
     """(0, 0) -> a1"""
     return chr(ord("a") + coords[0]) + str(coords[1] + 1)
+
+
+def move2c(move: str) -> Move:
+    move = move.replace(r"x", "").replace(r"-", "")
+    from_, to = sq2c(move[:2]), sq2c(move[2:])
+    promo = move[5] if "=" in move else None
+    return from_, to, promo
+
+
+def c2move(move: Move) -> str:
+    cfrom, cto, promo = move
+    return f"{c2sq(cfrom)}{c2sq(cto)}{'=' + promo if promo else ''}"
 
 
 def sq_color(c: Coords):

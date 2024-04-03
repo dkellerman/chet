@@ -63,72 +63,6 @@ class TestChess(unittest.TestCase):
         attacks, pin = g.get_attacks()
         self.assertEqual(pin, (sq2c("f3"), (-1, -1)))
 
-    def test_notation(self):
-        g = Game()
-        self.assertEqual(Move((0, 1), (0, 3)).to_notation(g), "a2a4")
-        self.assertEqual(Move.parse("a2a4", g), Move((0, 1), (0, 3)))
-        self.assertEqual(Move.parse("e2e4", g), Move((4, 1), (4, 3)))
-        self.assertEqual(Move((0, 6), (0, 7), promo="q").to_notation(g), "a7xa8=q")
-        self.assertEqual(Move.parse("a2a4q", g), Move((0, 1), (0, 3), promo="q"))
-        self.assertEqual(Move.parse("a2a4=q", g), Move((0, 1), (0, 3), promo="q"))
-        self.assertEqual(Move.parse("a2a4=Q", g), Move((0, 1), (0, 3), promo="q"))
-        self.assertEqual(Move.parse("a2a4=p", g), None)
-        self.assertEqual(Move.parse("a2a4p", g), None)
-        self.assertEqual(Move.parse("e4", g), Move((4, 1), (4, 3)))
-        self.assertEqual(Move.parse("Pe4", g), Move((4, 1), (4, 3)))
-        self.assertEqual(Move.parse("pe4", g), None)
-        self.assertEqual(Move.parse("Nf3", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nxf3", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Ngf3", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("N1f3", g), Move((6, 0), (5, 2)))
-        # illegal moves are actually ok if it's good form
-        self.assertEqual(Move.parse("h1f3", g), Move((7, 0), (5, 2)))
-        # but you can't implicitly move a piece that doesn't exist (or wrong color)
-        self.assertEqual(Move.parse("Ncf3", g), None)
-        self.assertEqual(Move.parse("N2f3", g), None)
-        self.assertEqual(Move.parse("e1", g), None)
-        self.assertEqual(Move.parse("N8f3", g), None)
-        # ignores annotations
-        self.assertEqual(Move.parse("Nf3+", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3++", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3#", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3?", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3!", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3!!", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3??", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3?!", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3+?!", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("Nf3?!+", g), Move((6, 0), (5, 2)))
-        self.assertEqual(Move.parse("e4xd3ep", g), Move((4, 3), (3, 2)))
-        self.assertEqual(Move.parse("e4xd3e.p", g), Move((4, 3), (3, 2)))
-        self.assertEqual(Move.parse("e4xd3e.p.", g), Move((4, 3), (3, 2)))
-        self.assertEqual(Move.parse("e4xd3EP", g), Move((4, 3), (3, 2)))
-        self.assertEqual(Move.parse("e4xd3 eP", g), Move((4, 3), (3, 2)))
-        self.assertEqual(Move.parse("e4xd3 EP", g), Move((4, 3), (3, 2)))
-        # castles
-        self.assertEqual(Move.parse("O-O", g), Move((4, 0), (6, 0), castle="K"))
-        self.assertEqual(Move.parse("O-O-O+", g), Move((4, 0), (2, 0), castle="Q"))
-        self.assertEqual(Move.parse("o-o", g), Move((4, 0), (6, 0), castle="K"))
-        self.assertEqual(Move.parse("o-o-o+", g), Move((4, 0), (2, 0), castle="Q"))
-        self.assertEqual(Move.parse("O-O", g), Move((4, 0), (6, 0), castle="K"))
-        self.assertEqual(Move.parse("0-0-0#", g), Move((4, 0), (2, 0), castle="Q"))
-        g.turn = BLACK
-        self.assertEqual(Move.parse("O-O", g), Move((4, 7), (6, 7), castle="k"))
-        self.assertEqual(Move.parse("O-O-o!", g), Move((4, 7), (2, 7), castle="q"))
-        g.turn = WHITE
-        g.make_moves(["e2e4", "e7e5", "d2d4", "d7d5"])
-        self.assertEqual(Move.parse("Bc4", g), Move((5, 0), (2, 3)))
-        self.assertEqual(Move.parse("Bxc4", g), Move((5, 0), (2, 3)))
-        self.assertEqual(Move.parse("Bc5", g), None)
-        self.assertEqual(Move.parse("Bxc5", g), None)
-        g.make_move("a1a3")
-        self.assertEqual(Move.parse("Bc5", g), Move((5, 7), (2, 4)))
-        self.assertEqual(Move.parse("Bxc5", g), Move((5, 7), (2, 4)))
-        self.turn = WHITE
-        g = Game("rnbqkbnr/pppppppp/8/8/8/5n2/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        self.assertEqual(Move.parse("gxf3", g), Move.parse("g2xf3", g))
-        self.assertEqual(Move.parse("gxf3", g), Move.parse("Pg2xf3", g))
-
     def test_make_move(self):
         g = Game()
         g.make_move("e2e4")
@@ -147,7 +81,6 @@ class TestChess(unittest.TestCase):
     def test_pawn_moves(self):
         # basic moves
         g = Game("8/8/8/8/8/8/PPPPPPPP/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
         self.assertLegalMoves(
             g,
             "a2a3|a2a4|b2b3|b2b4|c2c3|c2c4|d2d3|d2d4|e2e3|e2e4|f2f3|f2f4|"
@@ -180,7 +113,6 @@ class TestChess(unittest.TestCase):
 
     def test_knight_moves(self):
         g = Game("8/2B1b3/8/3N4/8/8/8/N7 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
         self.assertLegalMoves(
             g,
             "d5b6|d5b4|d5c3|d5e3|d5f4|d5f6|d5xe7|a1b3|a1c2|"
@@ -206,43 +138,41 @@ class TestChess(unittest.TestCase):
 
         # castles: basic
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue("e1g1" in moves)
         self.assertTrue("e1c1" in moves)
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R b KQkq - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue("e8g8" not in moves)
         self.assertTrue("e8c8" in moves)
 
         # castles: r/k has moved or otherwise unavailable
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue("e1g1" not in moves)
         self.assertTrue("e1c1" not in moves)
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R b - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue("e8g8" not in moves)
         self.assertTrue("e8c8" not in moves)
 
         # castles: squares attacked
         g = Game("r3kbrn/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue("e1g1" not in moves)
         self.assertTrue("e1c1" in moves)
 
         # test castling with sequential king/rook moves
         g = Game("r3kbnr/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
         self.assertTrue(g.is_legal_move("e1g1"))
-        self.assertTrue(g.is_legal_move("o-o"))
         self.assertTrue(g.is_legal_move("e1c1"))
-        self.assertTrue(g.is_legal_move("0-0-0"))
         g.make_move("a1a2")  # move A rook
         self.assertTrue(g.is_legal_move("e8c8"))
         self.assertFalse(g.is_legal_move("e8g8"))
-        g.make_move("o-o-o")
+        g.make_move("e8c8")
         self.assertTrue(g.is_legal_move("e1g1"))
         self.assertFalse(g.is_legal_move("e1c1"))
-        g.make_moves(["a8a7", "h1h2"])  # move H rook
+        make_moves(g, ["a8a7", "h1h2"])  # move H rook
         self.assertFalse(g.is_legal_move("e1g1"))
         self.assertFalse(g.is_legal_move("e1c1"))
         g = Game("r3kbnr/8/8/8/8/8/8/R2K3R w KQkq - 0 1")
@@ -269,27 +199,27 @@ class TestChess(unittest.TestCase):
     def test_bishop_moves(self):
         # basic
         g = Game("8/2p5/8/4B3/8/6P1/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertLegalMoves(
             g, "e5d6|e5xc7|e5f4|e5h8|e5g7|e5f6|e5d4|e5c3|e5b2|e5a1|g3g4"
         )
         # pinned to row/col
         g = Game("8/4K2/8/4B3/8/4r2/8/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue(len([m for m in moves if m[0:1] == "e5"]) == 0)
         g = Game("8/8/8/r3B2k/8/8/8/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
+        moves = sorted(g.get_legal_moves())
         self.assertTrue(len([m for m in moves if m[0:1] == "e5"]) == 0)
         # pinned to diags
         g = Game("8/6K1/8/4B3/3b4/8/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
-        self.assertTrue("e5xd4" in moves)
+        moves = sorted(g.get_legal_moves())
+        self.assertTrue("e5d4" in moves)
         self.assertTrue("e5f6" in moves)
         self.assertTrue("e5d6" not in moves)
         self.assertTrue("e5f4" not in moves)
         g = Game("8/6b1/8/4B3/3K4/8/8/8 w - - 0 1")
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
-        self.assertTrue("e5xg7" in moves)
+        moves = sorted(g.get_legal_moves())
+        self.assertTrue("e5g7" in moves)
         self.assertTrue("e5f6" in moves)
         self.assertTrue("e5d6" not in moves)
         self.assertTrue("e5f4" not in moves)
@@ -392,23 +322,23 @@ class TestChess(unittest.TestCase):
         g = Game("7k/8/8/8/8/8/8/K7 w - - 0 1")
         self.assertTrue(g.is_ended)
         self.assertEqual(g.status[0], "draw")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         # k/b v k
         g = Game("7k/8/8/8/8/8/8/KB6 w - - 0 1")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         g = Game("6bk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         # k/n v k
         g = Game("7k/8/8/8/8/8/8/KN6 w - - 0 1")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         g = Game("6nk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         # k/b v k/b - same color
         g = Game("6kb/8/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertEqual(g.status[1], "Insufficient material")
+        self.assertEqual(g.status[1], "insuff_material")
         # k/b v k/b - opp color
         g = Game("6k1/7b/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertNotEqual(g.status[1], "Insufficient material")
+        self.assertNotEqual(g.status[1], "insuff_material")
 
     def test_50_move_rule(self):
         g = Game()
@@ -425,7 +355,7 @@ class TestChess(unittest.TestCase):
         g.make_move("g1f3")
         g.make_move("g8f6")
         self.assertEqual(g.status[0], "draw")
-        self.assertEqual(g.status[1], "Fifty-move rule")
+        self.assertEqual(g.status[1], "fifty_move")
         self.assertEqual(g.draw_counter, 50)
 
     def test_print_board(self):
@@ -443,20 +373,20 @@ class TestChess(unittest.TestCase):
         self.assertTrue(g.is_legal_move("d8xd2"))
         g.make_move("d8xd2")
         self.assertEqual(g.status[0], "bwins")
-        self.assertEqual(g.status[1], "King captured")
+        self.assertEqual(g.status[1], "king_captured")
 
     def test_threefold_rep(self):
         g = Game()
-        g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
-        self.assertEqual(g.status[0],"playing")
-        g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
+        make_moves(g, ["g1f3", "g8f6", "f3g1", "f6g8"])
+        self.assertEqual(g.status[0], "playing")
+        make_moves(g, ["g1f3", "g8f6", "f3g1", "f6g8"])
         self.assertEqual(g.status[0], "draw")
-        self.assertEqual(g.status[1], "Threefold repetition")
+        self.assertEqual(g.status[1], "threefold_rep")
 
     def test_position_score(self):
         g = Game()
         self.assertEqual(g.get_position_score(), 0.0)
-        g.make_moves(["e2e4", "d7d5", "e4xd5"])
+        make_moves(g, ["e2e4", "d7d5", "e4xd5"])
         self.assertEqual(g.get_position_score(), 10.0)
         g.board[(3, 0)] = None
         self.assertEqual(g.get_position_score(), -80.0)
@@ -469,23 +399,25 @@ class TestChess(unittest.TestCase):
         p = Computer()
         p.lookahead_moves = 0
         move = p.get_move(g)
-        self.assertEqual(move.to_notation(g), "d2xd5")
+        self.assertEqual(move, "d2d5")
         p.lookahead_moves = 1
         move = p.get_move(g)
-        self.assertEqual(move.to_notation(g), "d2xg5")
+        self.assertEqual(move, "d2g5")
 
         # black moves
         g.make_move("c1d1")
         p.lookahead_moves = 0
         move = p.get_move(g)
-        self.assertEqual(move.to_notation(g), "d5xd2")
+        self.assertEqual(move, "d5d2")
         p.lookahead_moves = 1
         move = p.get_move(g)
-        self.assertEqual(move.to_notation(g), "d5xh1")
+        self.assertEqual(move, "d5h1")
 
     def assertLegalMoves(self, g: Game, moves_str: str):
-        moves = sorted([m.to_notation(g) for m in g.get_legal_moves()])
-        self.assertEqual(moves, sorted(moves_str.split("|")))
+        moves = sorted(g.get_legal_moves())
+        self.assertEqual(
+            moves, sorted([m.replace("x", "") for m in moves_str.split("|")])
+        )
 
 
 def _capture_stdout(func, *args, **kwargs):
@@ -496,35 +428,10 @@ def _capture_stdout(func, *args, **kwargs):
     return out.getvalue()
 
 
-def archive_test():
-    with open("./misc/archive.pgn", "r") as file:
-        lines = file.readlines()
-        game_ct = 0
-        for l in lines:
-            if l.strip().startswith("1."):
-                l = re.sub(r"\d+\.", "", l)
-                l = re.sub(r"\{[^\}]*\}", "", l)
-                l = re.sub(r"0-1|1-0|1/2-1/2", "", l)
-                moves = [m.strip() for m in l.split()]
-                game = Game()
-                good = True
-                for move in moves:
-                    if game_ct == 10:
-                        print(move)
-                    m = Move.parse(move, game)
-                    if m is None:
-                        print(move, end=" ")
-                        good = False
-                        break
-                    else:
-                        game.make_move(m)
-                game_ct += 1
-                if game_ct > 10:
-                    break
+def make_moves(game, moves):
+    for move in moves:
+        game.make_move(move)
 
 
 if __name__ == "__main__":
-    if "-a" in sys.argv:
-        archive_test()
-    else:
-        unittest.main()
+    unittest.main()
