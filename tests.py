@@ -12,15 +12,14 @@ class TestChess(unittest.TestCase):
         self.assertEqual(
             st2, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         )
-        self.assertEqual(g.turn, 0)
-        self.assertEqual(g.cur_color, WHITE)
+        self.assertEqual(g.turn, WHITE)
         self.assertEqual(g.draw_counter, 0)
         self.assertEqual(g.enpassant, None)
         self.assertEqual(g.castles, ["K", "Q", "k", "q"])
 
     def test_get_attacks(self):
         g = Game()
-        g.turn = 1
+        g.turn = BLACK
         attacks, pin = g.get_attacks()
         attacked_squares = list(set([c2sq(a[1]) for a in attacks]))
         self.assertEqual(
@@ -113,10 +112,10 @@ class TestChess(unittest.TestCase):
         self.assertEqual(Move.parse("o-o-o+", g), Move((4, 0), (2, 0), castle="Q"))
         self.assertEqual(Move.parse("O-O", g), Move((4, 0), (6, 0), castle="K"))
         self.assertEqual(Move.parse("0-0-0#", g), Move((4, 0), (2, 0), castle="Q"))
-        g.turn = 1
+        g.turn = BLACK
         self.assertEqual(Move.parse("O-O", g), Move((4, 7), (6, 7), castle="k"))
         self.assertEqual(Move.parse("O-O-o!", g), Move((4, 7), (2, 7), castle="q"))
-        g.turn = 0
+        g.turn = WHITE
         g.make_moves(["e2e4", "e7e5", "d2d4", "d7d5"])
         self.assertEqual(Move.parse("Bc4", g), Move((5, 0), (2, 3)))
         self.assertEqual(Move.parse("Bxc4", g), Move((5, 0), (2, 3)))
@@ -125,18 +124,10 @@ class TestChess(unittest.TestCase):
         g.make_move("a1a3")
         self.assertEqual(Move.parse("Bc5", g), Move((5, 7), (2, 4)))
         self.assertEqual(Move.parse("Bxc5", g), Move((5, 7), (2, 4)))
-        self.turn = 0
+        self.turn = WHITE
         g = Game("rnbqkbnr/pppppppp/8/8/8/5n2/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         self.assertEqual(Move.parse("gxf3", g), Move.parse("g2xf3", g))
         self.assertEqual(Move.parse("gxf3", g), Move.parse("Pg2xf3", g))
-
-        # actions
-        self.assertEqual(
-            Move.parse("resign", g), Move(None, None, action=Action.RESIGN)
-        )
-        self.assertEqual(
-            Move.parse("White Resigns", g), Move(None, None, action=Action.RESIGN)
-        )
 
     def test_make_move(self):
         g = Game()
@@ -145,14 +136,12 @@ class TestChess(unittest.TestCase):
             g.fen,
             "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e4 0 1",
         )
-        self.assertEqual(g.cur_color, BLACK)
         self.assertEqual(g.last_move, "e2e4")
-        self.assertEqual(g.turn, 1)
-        self.assertEqual(g.status, None)
-        self.assertEqual(g.status_desc, None)
+        self.assertEqual(g.turn, BLACK)
+        self.assertEqual(g.status[0], "playing")
+        self.assertEqual(g.status[1], "")
         g.make_move("e2e4")
-        self.assertEqual(g.cur_color, WHITE)
-        self.assertEqual(g.turn, 0)
+        self.assertEqual(g.turn, WHITE)
         self.assertEqual(len(g.history), 2)
 
     def test_pawn_moves(self):
@@ -350,12 +339,12 @@ class TestChess(unittest.TestCase):
     def test_is_check(self):
         g = Game()
         self.assertFalse(g.is_check())
-        g.turn = 1
+        g.turn = BLACK
         self.assertFalse(g.is_check())
         g.board[(4, 6)] = "Q"
         g.board[(4, 1)] = None
         self.assertTrue(g.is_check())
-        g.turn = 0
+        g.turn = WHITE
         self.assertFalse(g.is_check())
 
     def test_enpassant(self):
@@ -381,50 +370,45 @@ class TestChess(unittest.TestCase):
     def test_checkmate(self):
         g = Game("7k/RR6/8/8/8/8/8/K7 w - - 0 1")
         self.assertFalse(g.is_checkmate())
-        g.turn = 1
+        g.turn = BLACK
         self.assertFalse(g.is_checkmate())
-        g.turn = 0
-        self.assertEqual(g.status, None)
+        g.turn = WHITE
+        self.assertEqual(g.status[0], "playing")
         g.make_move("a7a8")
         self.assertTrue(g.is_checkmate())
-        self.assertEqual(g.status, Status.WWINS)
+        self.assertEqual(g.status[0], "wwins")
 
     def test_stalemate(self):
         g = Game("7k/R7/8/8/8/8/8/K4R2 w - - 0 1")
         self.assertFalse(g.is_stalemate())
         g.make_move("f1g1")
-        g.turn = 0
+        g.turn = WHITE
         self.assertFalse(g.is_stalemate())  # not black's turn yet
-        g.turn = 1
+        g.turn = BLACK
         self.assertTrue(g.is_stalemate())
 
     def test_insufficient_material(self):
         # k v k
         g = Game("7k/8/8/8/8/8/8/K7 w - - 0 1")
         self.assertTrue(g.is_ended)
-        self.assertEqual(g.status, Status.DRAW)
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[0], "draw")
+        self.assertEqual(g.status[1], "Insufficient material")
         # k/b v k
         g = Game("7k/8/8/8/8/8/8/KB6 w - - 0 1")
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[1], "Insufficient material")
         g = Game("6bk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[1], "Insufficient material")
         # k/n v k
         g = Game("7k/8/8/8/8/8/8/KN6 w - - 0 1")
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[1], "Insufficient material")
         g = Game("6nk/8/8/8/8/8/8/K7 w - - 0 1")
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[1], "Insufficient material")
         # k/b v k/b - same color
         g = Game("6kb/8/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertEqual(g.status_desc, "Insufficient material")
+        self.assertEqual(g.status[1], "Insufficient material")
         # k/b v k/b - opp color
         g = Game("6k1/7b/8/8/8/8/8/BK6 w - - 0 1")
-        self.assertNotEqual(g.status_desc, "Insufficient material")
-
-    def test_resign(self):
-        g = Game()
-        g.make_moves(["e2e4", "a7a6", "resign"])
-        self.assertEqual(g.status, Status.BWINS)
+        self.assertNotEqual(g.status[1], "Insufficient material")
 
     def test_50_move_rule(self):
         g = Game()
@@ -435,20 +419,20 @@ class TestChess(unittest.TestCase):
             g.make_move("f3g1")
             g.make_move("f6g8")
             g.repititions = dict()
-        self.assertEqual(g.status, None)
+        self.assertEqual(g.status[0], "playing")
         self.assertEqual(g.draw_counter, 48)
 
         g.make_move("g1f3")
         g.make_move("g8f6")
-        self.assertEqual(g.status, Status.DRAW)
-        self.assertEqual(g.status_desc, "Fifty-move rule")
+        self.assertEqual(g.status[0], "draw")
+        self.assertEqual(g.status[1], "Fifty-move rule")
         self.assertEqual(g.draw_counter, 50)
 
-    def test_render_board(self):
+    def test_print_board(self):
         g = Game()
-        val = _capture_stdout(g.render_board)
+        val = _capture_stdout(g.print_board)
         self.assertTrue(val.startswith("\nr n b q k b n r \n"))
-        val = _capture_stdout(g.render_board, color=BLACK)
+        val = _capture_stdout(g.print_board, color=BLACK)
         self.assertTrue(val.startswith("\nR N B K Q B N R \n"))
 
     def test_allow_king_capture(self):
@@ -458,30 +442,16 @@ class TestChess(unittest.TestCase):
         g.make_move("e1d2")
         self.assertTrue(g.is_legal_move("d8xd2"))
         g.make_move("d8xd2")
-        self.assertEqual(g.status, Status.BWINS)
-        self.assertEqual(g.status_desc, "King captured")
-
-    def test_is_legal_state(self):
-        g = Game("rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1")
-        self.assertTrue(g.is_legal_state())
-        g = Game("rnbqkbnr/8/8/8/8/8/8/RNBKBQNR w KQkq - 0 1")
-        self.assertTrue(g.is_legal_state())
-        g = Game("rnbkqbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1")
-        self.assertFalse(g.is_legal_state())
-
-    def test_random_boards(self):
-        for _ in range(10):
-            g = Game()
-            g.randomize_board()
-            self.assertTrue(g.is_legal_state())
+        self.assertEqual(g.status[0], "bwins")
+        self.assertEqual(g.status[1], "King captured")
 
     def test_threefold_rep(self):
         g = Game()
         g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
-        self.assertEqual(g.status, None)
+        self.assertEqual(g.status[0],"playing")
         g.make_moves(["g1f3", "g8f6", "f3g1", "f6g8"])
-        self.assertEqual(g.status, Status.DRAW)
-        self.assertEqual(g.status_desc, "Threefold repetition")
+        self.assertEqual(g.status[0], "draw")
+        self.assertEqual(g.status[1], "Threefold repetition")
 
     def test_position_score(self):
         g = Game()
