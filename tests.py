@@ -295,7 +295,7 @@ class TestChess(unittest.TestCase):
         self.assertTrue(g.is_legal_move("e5d6"))
         g.make_move("e5xd6")
         self.assertEqual(g.enpassant, None)
-        self.assertIsNone(g.board[sq2c("d5")])
+        self.assertEqual("", g.board[sq2c("d5")])
 
     def test_checkmate(self):
         g = Game("7k/RR6/8/8/8/8/8/K7 w - - 0 1")
