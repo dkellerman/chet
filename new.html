@@ -1,0 +1,64 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/chessboard.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body>
+  <nav>
+    <h3>Chet</h3>
+  </nav>
+  <main>
+    <div id="board"></div>
+  </main>
+  <script type="module">
+    import { Chessboard, FEN, INPUT_EVENT_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/Chessboard.js";
+    const board = new Chessboard(document.getElementById("board"), {
+      position: FEN.start,
+      assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/"
+    });
+    board.enableMoveInput(inputHandler);
+
+    function inputHandler(event) {
+        console.log(event);
+        if (event.type === INPUT_EVENT_TYPE.moveInputStarted ||
+            event.type === INPUT_EVENT_TYPE.validateMoveInput) {
+            return true; // false cancels move
+        }
+    }
+</script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      background: aliceblue;
+      padding: 10px;
+
+      h3 {
+        margin: 0;
+      }
+    }
+
+    main {
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    #board {
+      width: 100%;
+      max-width: 80vh;
+    }
+  </style>
+</body>
+
+</html>
