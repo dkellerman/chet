@@ -5,6 +5,9 @@
   <title>Chet | Chess bot</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/chessboard.css">
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/extensions/promotion-dialog/promotion-dialog.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/extensions/markers/markers.css" />
 </head>
 
 <body>
@@ -21,7 +24,9 @@
   </main>
 
   <script type="module">
-    import { Chessboard, FEN, INPUT_EVENT_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/Chessboard.js";
+    import { Chessboard, COLOR, INPUT_EVENT_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/Chessboard.js";
+    import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/promotion-dialog/PromotionDialog.js"
+    import { Markers } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/markers/Markers.js"
 
     function Chess() {
       const LOADING = 1, PLAYING = 2, GAME_OVER = 3;
@@ -49,6 +54,7 @@
           this.board = new Chessboard(document.getElementById("board"), {
             position: g.fen,
             assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/",
+            extensions: [{ class: PromotionDialog }, { class: Markers }],
             style: {
               showCoordinates: false
             }
@@ -71,10 +77,21 @@
         inputHandler(event) {
           if (this.status !== PLAYING) return false;
           const move = `${event.squareFrom}${event.squareTo}`;
+          console.log("MOVE", move);
 
           switch (event.type) {
             case INPUT_EVENT_TYPE.validateMoveInput:
-              return this.game.legalMoves.includes(move);
+              if (event.squareTo.charAt(1) === "8" && event.piece.charAt(1) === "p") {
+                if (!this.game.legalMoves.includes(move + '=q')) return false;
+                this.board.showPromotionDialog(event.squareTo, COLOR.white, (result) => {
+                  console.log("Promotion result", result);
+                  this.makeMove(move + '=' + result.piece.charAt(1));
+                });
+                return false;
+              } else {
+                this.promo = undefined;
+                return this.game.legalMoves.includes(move);
+              }
 
             case INPUT_EVENT_TYPE.moveInputFinished:
               if (event.legalMove) this.makeMove(move);
