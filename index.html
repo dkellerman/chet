@@ -10,8 +10,10 @@
     <h3>Chet</h3>
   </nav>
 
-  <main x-data="App()">
-    <div id="actions"><button @click="newGame">New Game</button></div>
+  <main x-init="init" x-data="Chess()">
+    <div id="actions">
+      <button @click="newGame">New Game</button>
+    </div>
     <div id="board"></div>
     <div id="status" x-text="statusMsg"></div>
   </main>
@@ -19,95 +21,108 @@
   <script type="module">
     import { Chessboard, FEN, INPUT_EVENT_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/Chessboard.js";
 
-    window.App = () => {
+    function Chess() {
       const LOADING = 1, PLAYING = 2, GAME_OVER = 3;
-      let game, status, statusMsg, board;
-
-      loadGame();
-
-      async function newGame() {
-        setStatus(LOADING, "Loading...");
-        const resp = await fetch('/games', { method: 'POST' });
-        setGame(await resp.json());
-        setStatus(PLAYING);
-      }
-
-      function loadGame() {
-        const g = sessionStorage.getItem('chet.game');
-        if (g) {
-          const game = JSON.parse(g);
-          setGame(game);
-          setStatus(PLAYING);
-        } else {
-          newGame();
-        }
-      }
-
-      function setGame(g) {
-        game = g;
-        if (board) board.destroy();
-        board = new Chessboard(document.getElementById("board"), {
-          position: game.fen,
-          assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/"
-        });
-        board.enableMoveInput(inputHandler);
-        sessionStorage.setItem('chet.game', JSON.stringify(game));
-      }
-
-      function setStatus(s, msg) {
-        status = s;
-        statusMsg = msg;
-      }
-
-      function inputHandler(event) {
-        // console.log(event);
-        if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
-          return game.legal_moves.includes(`${event.squareFrom}${event.squareTo}`);
-        } else if (event.type === INPUT_EVENT_TYPE.moveInputFinished && event.legalMove) {
-          const move = `${event.squareFrom}${event.squareTo}`;
-          console.log("move", move);
-          return makeMove(move);
-        }
-        return true;
-      }
-
-      async function makeMove(move) {
-        const resp = await fetch(`/games/${game.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: game.id,
-            fen: game.fen,
-            move,
-          }),
-        });
-        const newGameObj = await resp.json();
-        const [from, to] = [newGameObj.last_move.slice(0, 2), newGameObj.last_move.slice(2)];
-        const compMove = from + '-' + to;
-
-        console.log("comp move", compMove);
-        console.log("new game state", newGameObj);
-        if (compMove) {
-          board.movePiece(from, to, true);
-        }
-
-        game = newGameObj;
-        sessionStorage.setItem('chet.game', JSON.stringify(newGameObj));
-        loadGame();
-
-        if (newGame.status_desc) {
-          setStatus(GAME_OVER, newGame.status_desc);
-        } else {
-          setStatus(PLAYING, "Computer moved: " + compMove);
-        }
-      }
 
       return {
-        statusMsg,
-        newGame,
-      };
-    };
+        game: undefined,
+        status: undefined,
+        statusMsg: '',
+        board: undefined,
+
+        init() {
+          this.loadGame();
+        },
+
+        async newGame() {
+          this.setStatus(LOADING, "Loading...");
+          const resp = await fetch('/games', { method: 'POST' });
+          this.setGame(await resp.json());
+          this.setStatus(PLAYING);
+        },
+
+        setGame(g) {
+          this.game = g;
+          if (this.board) this.board.destroy();
+          this.board = new Chessboard(document.getElementById("board"), {
+            position: g.fen,
+            assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/",
+            style: {
+              showCoordinates: false
+            }
+          });
+          this.board.enableMoveInput(this.inputHandler.bind(this));
+          sessionStorage.setItem('chet.game', JSON.stringify(g));
+        },
+
+        loadGame() {
+          const g = sessionStorage.getItem('chet.game');
+          if (g) {
+            const game = JSON.parse(g);
+            this.setGame(game);
+            this.setStatus(PLAYING);
+          } else {
+            this.newGame();
+          }
+        },
+
+        inputHandler(event) {
+          if (this.status !== PLAYING) return false;
+
+          const move = `${event.squareFrom}${event.squareTo}`;
+          switch (event.type) {
+            case INPUT_EVENT_TYPE.validateMoveInput:
+              return this.game.legal_moves.includes(move);
+            case INPUT_EVENT_TYPE.moveInputFinished:
+              if (event.legalMove) this.makeMove(move);
+              else return false;
+            default:
+              return true;
+          }
+          return true;
+        },
+
+        async makeMove(move) {
+          this.setStatus(LOADING, "Thinking...");
+
+          const resp = await fetch(`/games/${this.game.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: this.game.id,
+              fen: this.game.fen,
+              move,
+            }),
+          });
+          const newGameObj = await resp.json();
+          const [from, to] = [newGameObj.last_move.slice(0, 2), newGameObj.last_move.slice(2)];
+          const compMove = from + '-' + to;
+
+          console.log("comp move", compMove);
+          console.log("new game state", newGameObj);
+          if (compMove) this.board.movePiece(from, to, true);
+
+          this.game = newGameObj;
+          sessionStorage.setItem('chet.game', JSON.stringify(newGameObj));
+          this.loadGame();
+
+          if (newGameObj.status_desc) {
+            this.setStatus(GAME_OVER, newGameObj.status_desc);
+          } else {
+            this.setStatus(PLAYING, "Computer moved: " + compMove);
+          }
+        },
+
+        setStatus(s, msg) {
+          this.status = s;
+          this.statusMsg = msg;
+        }
+      }
+    }
+
+    window.Chess = Chess;
   </script>
+
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
   <style>
@@ -139,11 +154,11 @@
 
     #board {
       width: 100%;
-      max-width: 70vh;
+      max-width: 60vh;
     }
 
     #status {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
     }
   </style>
