@@ -39,10 +39,10 @@ def game2dict(id, game):
         "id": id,
         "fen": game.fen,
         "status": game.status[0],
-        "status_desc": game.status[1],
+        "statusDesc": game.status[1],
         "history": game.history,
-        "legal_moves": game.get_legal_moves(),
-        "last_move": game.last_move if game.last_move else None,
+        "legalMoves": game.get_legal_moves(),
+        "lastMove": game.last_move if game.last_move else None,
     }
 
 

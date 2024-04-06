@@ -74,7 +74,7 @@
 
           switch (event.type) {
             case INPUT_EVENT_TYPE.validateMoveInput:
-              return this.game.legal_moves.includes(move);
+              return this.game.legalMoves.includes(move);
 
             case INPUT_EVENT_TYPE.moveInputFinished:
               if (event.legalMove) this.makeMove(move);
@@ -99,7 +99,7 @@
             }),
           });
           const newGameObj = await resp.json();
-          const [from, to] = [newGameObj.last_move.slice(0, 2), newGameObj.last_move.slice(2)];
+          const [from, to] = [newGameObj.lastMove.slice(0, 2), newGameObj.lastMove.slice(2)];
           const compMove = from + '-' + to;
 
           if (compMove) this.board.movePiece(from, to, true);
@@ -108,8 +108,8 @@
           sessionStorage.setItem('chet.game', JSON.stringify(newGameObj));
           this.loadGame();
 
-          if (newGameObj.status_desc) {
-            this.setStatus(GAME_OVER, newGameObj.status_desc);
+          if (newGameObj.statusDesc) {
+            this.setStatus(GAME_OVER, newGameObj.statusDesc);
           } else {
             this.setStatus(PLAYING, "Computer moved: " + compMove);
           }
