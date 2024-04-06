@@ -13,8 +13,8 @@ Coords = tuple[int, int]  # col, row
 Pin = tuple[Coords, Coords]  # sq of pinned piece, axis
 Attack = tuple[Coords, Coords]  # sq of attacking piece, sq of attacked piece
 Check = tuple[Coords, Coords]  # sq of attacking piece, axis
-PieceVectors = list[tuple[int, int]]
-Move = tuple[Coords, Coords, str]
+PieceVectors = list[tuple[int, int]]  # col dir, row dir
+Move = tuple[Coords, Coords, str]  # from, to, promo
 
 WHITE, BLACK = True, False
 SCORES = dict(p=10, n=30, b=35, r=50, q=90, k=0)

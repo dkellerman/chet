@@ -1,6 +1,8 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
+  <title>Chet | Chess bot</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/chessboard.css">
 </head>
@@ -10,7 +12,7 @@
     <h3>Chet</h3>
   </nav>
 
-  <main x-init="init" x-data="Chess()">
+  <main x-data="Chess()" x-init="init">
     <div id="actions">
       <button @click="newGame">New Game</button>
     </div>
@@ -68,14 +70,16 @@
 
         inputHandler(event) {
           if (this.status !== PLAYING) return false;
-
           const move = `${event.squareFrom}${event.squareTo}`;
+
           switch (event.type) {
             case INPUT_EVENT_TYPE.validateMoveInput:
               return this.game.legal_moves.includes(move);
+
             case INPUT_EVENT_TYPE.moveInputFinished:
               if (event.legalMove) this.makeMove(move);
               else return false;
+
             default:
               return true;
           }
@@ -98,8 +102,6 @@
           const [from, to] = [newGameObj.last_move.slice(0, 2), newGameObj.last_move.slice(2)];
           const compMove = from + '-' + to;
 
-          console.log("comp move", compMove);
-          console.log("new game state", newGameObj);
           if (compMove) this.board.movePiece(from, to, true);
 
           this.game = newGameObj;
