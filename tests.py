@@ -266,6 +266,13 @@ class TestChess(unittest.TestCase):
         g = Game("8/8/5k2/8/5R2/8/8/8 b - - 0 1")
         self.assertLegalMoves(g, "f6e6|f6e7|f6e5|f6g7|f6g6|f6g5")
 
+    def test_discovered_check(self):
+        g = Game("8/p7/5k2/8/8/8/5N2/5R2 b - - 0 1")
+        self.assertLegalMoves(g, "f6e6|f6e7|f6e5|f6g7|f6g6|f6g5|f6f5|f6f7|a7a6|a7a5")
+        make_moves(g, ["f6f5", "f2d1"])
+        g.print_board()
+        self.assertLegalMoves(g, "f5e4|f5e5|f5e6|f5g4|f5g5|f5g6")
+
     def test_is_check(self):
         g = Game()
         self.assertFalse(g.is_check())

@@ -397,7 +397,7 @@ class Game:
                 if not looking_for_pin:
                     attacks.append((from_square, to_square))
                 attacked_piece = self.board.get(to_square)
-                if attacked_piece is None:
+                if not attacked_piece:
                     continue
                 if attacked_piece.isupper() == color:
                     # TODO: handle the dreaded enpassant-pin
