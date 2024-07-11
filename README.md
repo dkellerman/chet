@@ -1,6 +1,6 @@
 # Chet
 
-Chess bot
+Chess bot, WIP
 
 Best with python 3.11
 
